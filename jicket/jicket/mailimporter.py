@@ -76,9 +76,15 @@ class MailImporter():
         if response[0] != "OK":
             log.error("Failed to retrieve mails from inbox: %s" % response[1][0].decode())
             # TODO: Raise exception?
-
         indices = response[1][0].split()
+
+        mails = []
         for i in indices:
-            print(self.IMAP.fetch(i, "(RFC822)"))
+            response = self.IMAP.fetch(i, "(RFC822)")
 
+            if response[0] == "OK":
+                mails.append((int(i), response[1][0][1].decode()))
+            else:
+                log.error("Failed to fetch mail: %s" % response[1][0].decode())
 
+        return mails
