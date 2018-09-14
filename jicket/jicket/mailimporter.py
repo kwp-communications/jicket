@@ -72,7 +72,7 @@ class MailImporter():
             return
         log.info("%s email(s) in inbox" % emailcount)
 
-        response = self.IMAP.search(None, "(ALL)")
+        response = self.IMAP.uid("search", None, "(ALL)")
         if response[0] != "OK":
             log.error("Failed to retrieve mails from inbox: %s" % response[1][0].decode())
             # TODO: Raise exception?
@@ -80,7 +80,7 @@ class MailImporter():
 
         mails = []
         for i in indices:
-            response = self.IMAP.fetch(i, "(RFC822)")
+            response = self.IMAP.uid("fetch", i, "(RFC822)")
 
             if response[0] == "OK":
                 mails.append((int(i), response[1][0][1].decode()))
