@@ -3,10 +3,13 @@
 Reads all emails from a mailbox with IMAP. After the emails are parsed by jicket they will be further processed
 (moved to folders for example) based on success or fail."""
 
-from typing import Union
+from typing import Union, List
 import imaplib
 import ssl
 import jicket.log as log
+import email.parser
+import hashids
+import re
 
 class MailConfig():
     """Configuration for MailImporter"""
@@ -19,6 +22,57 @@ class MailConfig():
         self.folderInbox = "INBOX"    # type: str               # Folder from which incoming messages are retrieved
         self.folderSuccess = "ticket-success"    # type: str    # Where mails shall be put on import success
         self.folderFailure = "ticket-fail"  # type: str         # Where mails shall be put in import fail
+
+        self.idPrefix = "JI"    # type: str
+        self.idSalt = "JicketSalt"  # type: str
+        self.idAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"    # type: str
+        self.idMinLength = 6    # type: int
+
+    def checkValidity(self):
+        """Checks if configuration parameters are valid"""
+        pass
+
+class ProcessedMail():
+    def __init__(self, uid: int, mailcontent: str, config: MailConfig):
+        self.uid = uid  # type: int # Email UID from mailbox. See RFC3501 2.3.1.1.
+        self.mailcontent = mailcontent  # type: str
+        self.config = config
+
+        self.body = ""  # type: str
+        self.parsed = None  # type: email.message.Message
+        self.ticketid = None    # type: int # ID of ticket
+        self.tickethash = None  # type: str # Hashed ticket ID
+
+        self.process()
+        self.determineTicketID()
+
+    def process(self) -> None:
+        """Parse email and fetch body and all attachments"""
+        self.parsed = email.message_from_string(self.mailcontent)
+
+        for part in self.parsed.get_payload():
+            if part.get_content_maintype() == "text":
+                # Append all text parts together. Usually there shouldn't be more than one text part.
+                self.body += part.get_payload()
+
+        self.subject = self.parsed["subject"]
+        # TODO: Get all attachments
+
+    def determineTicketID(self):
+        """Determine ticket id either from existing subject line or from uid
+
+        If the Subject line contains an ID, it is taken. If it doesn't, a new one is generated.
+        """
+        hashid = hashids.Hashids(salt=self.config.idSalt, alphabet=self.config.idAlphabet, min_length=self.config.idMinLength)
+
+        idregex = "\[%s-([%s]{%i,}?)\]" % (self.config.idPrefix, self.config.idAlphabet, self.config.idMinLength)
+        match = re.match(idregex, self.subject)
+        if match:
+            self.tickethash = match.group(1)
+            self.ticketid = hashid.decode(self.tickethash)
+        else:
+            self.tickethash = hashid.encode(self.uid)
+            self.ticketid = self.uid
 
 
 class MailImporter():
@@ -61,7 +115,7 @@ class MailImporter():
             # TODO: Raise exception
 
 
-    def fetchMails(self):
+    def fetchMails(self) -> List[ProcessedMail]:
         """Fetch mails from inbox folder and return them"""
         response = self.IMAP.select(self.mailconfig.folderInbox)
         if response[0] != "OK":
@@ -69,7 +123,7 @@ class MailImporter():
             # TODO: Raise exception
         emailcount = int(response[1][0])
         if not emailcount > 0:
-            return
+            return []
         log.info("%s email(s) in inbox" % emailcount)
 
         response = self.IMAP.uid("search", None, "(ALL)")
@@ -79,12 +133,12 @@ class MailImporter():
         indices = response[1][0].split()
 
         mails = []
-        for i in indices:
-            response = self.IMAP.uid("fetch", i, "(RFC822)")
-
-            if response[0] == "OK":
-                mails.append((int(i), response[1][0][1].decode()))
-            else:
+        for uid in indices:
+            response = self.IMAP.uid("fetch", uid, "(RFC822)")
+            if response[0] != "OK":
                 log.error("Failed to fetch mail: %s" % response[1][0].decode())
+
+            mails.append(ProcessedMail(int(uid), response[1][0][1].decode(), self.mailconfig))
+
 
         return mails
