@@ -1,1 +1,3 @@
 hashids
+jira
+html2text
