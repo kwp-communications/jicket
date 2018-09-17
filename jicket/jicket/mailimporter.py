@@ -33,9 +33,9 @@ class MailConfig():
         pass
 
 class ProcessedMail():
-    def __init__(self, uid: int, mailcontent: str, config: MailConfig):
+    def __init__(self, uid: int, rawmailcontent: bytes, config: MailConfig):
         self.uid = uid  # type: int # Email UID from mailbox. See RFC3501 2.3.1.1.
-        self.mailcontent = mailcontent  # type: str
+        self.rawmailcontent = rawmailcontent    # type: bytes
         self.config = config
 
         self.body = ""  # type: str
@@ -48,15 +48,16 @@ class ProcessedMail():
 
     def process(self) -> None:
         """Parse email and fetch body and all attachments"""
-        self.parsed = email.message_from_string(self.mailcontent)
+        self.parsed = email.message_from_bytes(self.rawmailcontent) # type: email.message.EmailMessage
 
         for part in self.parsed.get_payload():
             if part.get_content_maintype() == "text":
                 # Append all text parts together. Usually there shouldn't be more than one text part.
-                self.body += part.get_payload()
+                self.body += part.get_payload(decode=True).decode(part.get_content_charset())
 
         self.subject = self.parsed["subject"]
         # TODO: Get all attachments
+        self.rawmailcontent = None  # No need to store after processing
 
     def determineTicketID(self):
         """Determine ticket id either from existing subject line or from uid
@@ -138,7 +139,7 @@ class MailImporter():
             if response[0] != "OK":
                 log.error("Failed to fetch mail: %s" % response[1][0].decode())
 
-            mails.append(ProcessedMail(int(uid), response[1][0][1].decode(), self.mailconfig))
+            mails.append(ProcessedMail(int(uid), response[1][0][1], self.mailconfig))
 
 
         return mails
