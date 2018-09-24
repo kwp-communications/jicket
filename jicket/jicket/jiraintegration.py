@@ -55,8 +55,6 @@ class JiraIntegration():
         description = ""
         description += "Imported by Jicket (SequentialID: %i)\n\n\n" % self.mail.ticketid
         description += re.sub("(\n.*?)\n", "\g<1>", html2text.html2text(self.mail.body))    # Remove every second newline which is added to distinguish between paragraphs in Markdown, but makes the jira ticket hard to read.
-        with open("mail.md", "w") as f:
-            f.write(html2text.html2text(self.mail.body))
 
         issuedict = {
             "project": {"key": self.config.project},
