@@ -5,6 +5,7 @@ Reads all emails from a mailbox with IMAP. After the emails are parsed by jicket
 
 from typing import Union, List
 import imaplib
+import smtplib
 import ssl
 import jicket.log as log
 import email.parser
@@ -18,6 +19,11 @@ class MailConfig():
         self.IMAPPort = 993     # type: int
         self.IMAPUser = None    # type: str
         self.IMAPPass = None    # type: str
+
+        self.SMTPHost = None    # type: str
+        self.SMTPPort = 587     # type: int
+        self.SMTPUser = None    # type: str
+        self.SMTPPass = None    # Type: str
 
         self.folderInbox = "INBOX"    # type: str               # Folder from which incoming messages are retrieved
         self.folderSuccess = "ticket-success"    # type: str    # Where mails shall be put on import success
@@ -88,7 +94,7 @@ class MailImporter():
 
     def login(self):
         """Connects to the mailbox and logs in."""
-        self.IMAP = imaplib.IMAP4_SSL("outlook.office365.com", 993, ssl_context=ssl.create_default_context())
+        self.IMAP = imaplib.IMAP4_SSL(self.mailconfig.IMAPHost, 993, ssl_context=ssl.create_default_context())
         try:
             self.IMAP.login(self.mailconfig.IMAPUser, self.mailconfig.IMAPPass)
         except:
@@ -143,3 +149,51 @@ class MailImporter():
 
 
         return mails
+
+
+class MailExporter():
+    """Sends out mails via SMTP"""
+    def __init__(self, mailconfig: MailConfig):
+        self.mailconfig = mailconfig    # type: MailConfig
+
+    def login(self):
+        self.SMTP = smtplib.SMTP(self.mailconfig.SMTPHost, self.mailconfig.SMTPPort)
+        self.SMTP.ehlo()
+        self.SMTP.starttls()
+        self.SMTP.ehlo()
+        try:
+            self.SMTP.login(self.mailconfig.SMTPUser, self.mailconfig.SMTPPass)
+        except smtplib.SMTPAuthenticationError:
+            log.error("SMTP login failed. Are your login credentials correct?")
+            raise
+
+    def quit(self):
+        self.SMTP.quit()
+
+    def sendmail(self, mail: email.message.EmailMessage):
+        self.SMTP.sendmail(mail["From"], mail["To"], mail.as_string())
+
+    def sendTicketStart(self, mail: ProcessedMail):
+        """Sends the initial mail to start an email thread from an incoming email"""
+        threadstarter = email.message_from_string(str(mail.parsed))     # type: email.message.EmailMessage  # Make a copy of the incoming mail
+
+        keepheaders = [     # List of headers to retain from incoming mail  # TODO: Make configurable?
+            "Content-Type",
+            "MIME-Version"
+        ]
+
+        for headername in threadstarter:
+            if headername not in keepheaders:
+                del threadstarter[headername]
+
+        # Add Jicket headers
+        threadstarter["X-Jicket-HashID"] = mail.tickethash
+
+        # Set other headers
+        threadstarter["To"] = "l.jackowski@kwp-communications.com, ticket-test@kwp-communications.com"
+        threadstarter["From"] = "ticket-test@kwp-communications.com"
+        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"]
+        threadstarter["Subject"] = "[#%s] %s" % (mail.tickethash, mail.subject)
+
+        # Send mail
+        self.sendmail(threadstarter)
