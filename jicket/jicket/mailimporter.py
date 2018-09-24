@@ -56,10 +56,14 @@ class ProcessedMail():
         """Parse email and fetch body and all attachments"""
         self.parsed = email.message_from_bytes(self.rawmailcontent) # type: email.message.EmailMessage
 
-        for part in self.parsed.get_payload():
-            if part.get_content_maintype() == "text":
-                # Append all text parts together. Usually there shouldn't be more than one text part.
-                self.body += part.get_payload(decode=True).decode(part.get_content_charset())
+        if self.parsed.is_multipart():
+            for part in self.parsed.get_payload():
+                if part.get_content_maintype() == "text":
+                    # Append all text parts together. Usually there shouldn't be more than one text part.
+                    self.body += part.get_payload(decode=True).decode(part.get_content_charset())
+        else:
+            if self.parsed.get_content_maintype() == "text":
+                self.body += self.parsed.get_payload()
 
         self.subject = self.parsed["subject"]
         # TODO: Get all attachments
