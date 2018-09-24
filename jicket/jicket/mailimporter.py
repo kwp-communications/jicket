@@ -9,8 +9,11 @@ import smtplib
 import ssl
 import jicket.log as log
 import email.parser
+import email.mime.text
 import hashids
 import re
+
+from pathlib import Path
 
 class MailConfig():
     """Configuration for MailImporter"""
@@ -26,8 +29,8 @@ class MailConfig():
         self.SMTPPass = None    # Type: str
 
         self.folderInbox = "INBOX"    # type: str               # Folder from which incoming messages are retrieved
-        self.folderSuccess = "ticket-success"    # type: str    # Where mails shall be put on import success
-        self.folderFailure = "ticket-fail"  # type: str         # Where mails shall be put in import fail
+        self.folderSuccess = "jicket-incoming"    # type: str   # Where mails shall be put after import
+        self.threadStartTemplate = Path("threadtemplate.html")  # type: Path
 
         self.idPrefix = "JI"    # type: str
         self.idSalt = "JicketSalt"  # type: str
@@ -120,10 +123,6 @@ class MailImporter():
         if response[0] != "OK":
             log.error("Error accessing Folder '%s': %s" % (self.mailconfig.folderSuccess, response[1][0].decode()))
             # TODO: Raise exception
-        response = self.IMAP.select(self.mailconfig.folderFailure)
-        if response[0] != "OK":
-            log.error("Error accessing Folder '%s': %s" % (self.mailconfig.folderFailure, response[1][0].decode()))
-            # TODO: Raise exception
 
 
     def fetchMails(self) -> List[ProcessedMail]:
@@ -174,29 +173,28 @@ class MailExporter():
     def quit(self):
         self.SMTP.quit()
 
-    def sendmail(self, mail: email.message.EmailMessage):
+    def sendmail(self, mail: email.message.Message):
         self.SMTP.sendmail(mail["From"], mail["To"], mail.as_string())
 
     def sendTicketStart(self, mail: ProcessedMail):
         """Sends the initial mail to start an email thread from an incoming email"""
-        threadstarter = email.message_from_string(str(mail.parsed))     # type: email.message.EmailMessage  # Make a copy of the incoming mail
 
-        keepheaders = [     # List of headers to retain from incoming mail  # TODO: Make configurable?
-            "Content-Type",
-            "MIME-Version"
-        ]
+        with self.mailconfig.threadStartTemplate.open("r") as f:
+            responsehtml = f.read()
+            responsehtml = responsehtml % {
+                "ticketid": mail.tickethash,
+                "subject": mail.subject
+            }
 
-        for headername in threadstarter:
-            if headername not in keepheaders:
-                del threadstarter[headername]
+        threadstarter = email.mime.text.MIMEText(responsehtml, "html")
 
         # Add Jicket headers
         threadstarter["X-Jicket-HashID"] = mail.tickethash
 
         # Set other headers
-        threadstarter["To"] = "l.jackowski@kwp-communications.com, ticket-test@kwp-communications.com"
+        threadstarter["To"] = "ticket-test@kwp-communications.com"
         threadstarter["From"] = "ticket-test@kwp-communications.com"
-        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"]
+        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
         threadstarter["Subject"] = "[#%s] %s" % (mail.tickethash, mail.subject)
 
         # Send mail
