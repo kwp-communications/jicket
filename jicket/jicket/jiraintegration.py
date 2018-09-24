@@ -22,7 +22,6 @@ class JiraIntegration():
 
         self.jira = jira.JIRA(self.config.jiraHost, basic_auth=(self.config.jiraUser, self.config.jiraPass))
 
-        self.processMail()
 
 
     def processMail(self) -> None:
