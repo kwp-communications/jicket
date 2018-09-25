@@ -53,7 +53,8 @@ class JiraIntegration():
 
         # Construct string for description
         description = ""
-        description += "Imported by Jicket (SequentialID: %i)\n\n\n" % self.mail.ticketid
+        description += "Imported by Jicket (SequentialID: %i)" % self.mail.ticketid
+        description += "From: %s\n\n\n" % self.mail.parsed["From"]
         description += re.sub("(\n.*?)\n", "\g<1>", html2text.html2text(self.mail.body))    # Remove every second newline which is added to distinguish between paragraphs in Markdown, but makes the jira ticket hard to read.
 
         issuedict = {
@@ -71,7 +72,7 @@ class JiraIntegration():
         log.info("Updating Issue for #%s in project %s" % (self.mail.prefixedhash, self.config.project))
 
         commenttext = ""
-        commenttext += "Imported by Jicket (SequentialID: %i)\n\n\n" % self.mail.ticketid
+        commenttext += "From: %s\n\n\n" % self.mail.parsed["From"]
         commenttext += re.sub("(\n.*?)\n", "\g<1>", html2text.html2text(self.mail.body))
 
         comment = self.jira.add_comment(issue, commenttext)     # TODO: error checking
