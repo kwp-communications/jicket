@@ -87,6 +87,15 @@ class ProcessedMail():
         """
         hashid = hashids.Hashids(salt=self.config.idSalt, alphabet=self.config.idAlphabet, min_length=self.config.idMinLength)
 
+        # See if hashid is set in headers
+        try:
+            if self.parsed["X-Jicket-HashID"] is not None:
+                self.tickethash = self.parsed["X-Jicket-HashID"]
+                self.ticketid = hashid.decode(self.parsed["X-Jicket-HashID"])
+                return
+        except:
+            pass
+
         idregex = "\[%s([%s]{%i,}?)\]" % (self.config.idPrefix, self.config.idAlphabet, self.config.idMinLength)
         match = re.match(idregex, self.subject)
         if match:
