@@ -32,6 +32,8 @@ class MailConfig():
         self.folderSuccess = "jicket-incoming"    # type: str   # Where mails shall be put after import
         self.threadStartTemplate = Path("threadtemplate.html")  # type: Path
 
+        self.ticketAddress = None       # type: str # Address of jicket mailbox
+
         self.idPrefix = "JI"    # type: str
         self.idSalt = "JicketSalt"  # type: str
         self.idAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"    # type: str
@@ -192,8 +194,8 @@ class MailExporter():
         threadstarter["X-Jicket-HashID"] = mail.tickethash
 
         # Set other headers
-        threadstarter["To"] = "ticket-test@kwp-communications.com"
-        threadstarter["From"] = "ticket-test@kwp-communications.com"
+        threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
+        threadstarter["From"] = self.mailconfig.ticketAddress
         threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
         threadstarter["Subject"] = "[#%s] %s" % (mail.tickethash, mail.subject)
 
