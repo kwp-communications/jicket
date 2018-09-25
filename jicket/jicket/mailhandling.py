@@ -126,7 +126,6 @@ class MailImporter():
             log.error("Error accessing Folder '%s': %s" % (self.mailconfig.folderSuccess, response[1][0].decode()))
             # TODO: Raise exception
 
-
     def fetchMails(self) -> List[ProcessedMail]:
         """Fetch mails from inbox folder and return them"""
         response = self.IMAP.select(self.mailconfig.folderInbox)
@@ -152,8 +151,12 @@ class MailImporter():
 
             mails.append(ProcessedMail(int(uid), response[1][0][1], self.mailconfig))
 
-
         return mails
+
+    def moveImported(self, mail):
+        """Move successfully imported mails to success folder"""
+        self.IMAP.uid("copy", str(mail.uid).encode(), self.mailconfig.folderSuccess)
+        self.IMAP.uid("store", str(mail.uid).encode(), "+FLAGS", "(\Deleted)")
 
 
 class MailExporter():
