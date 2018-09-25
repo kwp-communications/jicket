@@ -54,6 +54,8 @@ class ProcessedMail():
         self.ticketid = None    # type: int # ID of ticket
         self.tickethash = None  # type: str # Hashed ticket ID
 
+        self.threadstarter = False
+
         self.process()
         self.determineTicketID()
 
@@ -72,6 +74,10 @@ class ProcessedMail():
 
         self.subject = self.parsed["subject"]
         # TODO: Get all attachments
+
+        if self.parsed["X-Jicket-Initial-ReplyID"] is not None and self.parsed["X-Jicket-Initial-ReplyID"] == self.parsed["In-Reply-To"]:
+            self.threadstarter = True
+
         self.rawmailcontent = None  # No need to store after processing
 
     def determineTicketID(self):
@@ -156,7 +162,8 @@ class MailImporter():
     def moveImported(self, mail):
         """Move successfully imported mails to success folder"""
         self.IMAP.uid("copy", str(mail.uid).encode(), self.mailconfig.folderSuccess)
-        self.IMAP.uid("store", str(mail.uid).encode(), "+FLAGS", "(\Deleted)")
+        self.IMAP.uid("store", str(mail.uid).encode(), "+flags", "(\Deleted)")
+        self.IMAP.expunge()
 
 
 class MailExporter():
@@ -195,6 +202,9 @@ class MailExporter():
 
         # Add Jicket headers
         threadstarter["X-Jicket-HashID"] = mail.tickethash
+        # Initial ID this is a reply to. It is used to identify if this is a threadstarter email or regular mail.
+        # Treadstarter mails should be ignored on import, as they're only of informative nature.
+        threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"].rstrip()
 
         # Set other headers
         threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
