@@ -42,14 +42,14 @@ class JiraIntegration():
 
     def findIssue(self) -> List[jira.Issue]:
         """Check if issue for ticketid exists already"""
-        issues = self.jira.search_issues("project = %s AND summary~'\\\\[\\\\#%s\\\\]'" % (self.config.project, self.mail.tickethash))
+        issues = self.jira.search_issues("project = %s AND summary~'\\\\[\\\\#%s\\\\]'" % (self.config.project, self.mail.prefixedhash))
 
         return issues
 
 
     def newIssue(self):
         """Create a new issue from Mail"""
-        log.info("Creating new Issue for #%s in project %s" % (self.mail.tickethash, self.config.project))
+        log.info("Creating new Issue for #%s in project %s" % (self.mail.prefixedhash, self.config.project))
 
         # Construct string for description
         description = ""
@@ -58,7 +58,7 @@ class JiraIntegration():
 
         issuedict = {
             "project": {"key": self.config.project},
-            "summary": "[#%s] %s" % (self.mail.tickethash, self.mail.subject),
+            "summary": "[#%s] %s" % (self.mail.prefixedhash, self.mail.subject),
             "description": description,
             "issuetype": {"name": "Task"}
         }
@@ -68,7 +68,7 @@ class JiraIntegration():
 
     def updateIssue(self, issue: jira.Issue):
         """Update issue from mail"""
-        log.info("Updating Issue for #%s in project %s" % (self.mail.tickethash, self.config.project))
+        log.info("Updating Issue for #%s in project %s" % (self.mail.prefixedhash, self.config.project))
 
         commenttext = ""
         commenttext += "Imported by Jicket (SequentialID: %i)\n\n\n" % self.mail.ticketid

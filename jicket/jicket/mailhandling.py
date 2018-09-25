@@ -53,6 +53,7 @@ class ProcessedMail():
         self.parsed = None  # type: email.message.Message
         self.ticketid = None    # type: int # ID of ticket
         self.tickethash = None  # type: str # Hashed ticket ID
+        self.prefixedhash = None    # type: str # Hashed ticket ID with prefix
 
         self.threadstarter = False
 
@@ -104,6 +105,8 @@ class ProcessedMail():
         else:
             self.tickethash = hashid.encode(self.uid)
             self.ticketid = self.uid
+
+        self.prefixedhash = self.config.idPrefix + self.tickethash
 
 
 class MailImporter():
