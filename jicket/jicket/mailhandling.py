@@ -34,7 +34,7 @@ class MailConfig():
 
         self.ticketAddress = None       # type: str # Address of jicket mailbox
 
-        self.idPrefix = "JI"    # type: str
+        self.idPrefix = "JI-"    # type: str
         self.idSalt = "JicketSalt"  # type: str
         self.idAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"    # type: str
         self.idMinLength = 6    # type: int
@@ -53,6 +53,9 @@ class ProcessedMail():
         self.parsed = None  # type: email.message.Message
         self.ticketid = None    # type: int # ID of ticket
         self.tickethash = None  # type: str # Hashed ticket ID
+        self.prefixedhash = None    # type: str # Hashed ticket ID with prefix
+
+        self.threadstarter = False
 
         self.process()
         self.determineTicketID()
@@ -72,6 +75,10 @@ class ProcessedMail():
 
         self.subject = self.parsed["subject"]
         # TODO: Get all attachments
+
+        if self.parsed["X-Jicket-Initial-ReplyID"] is not None and self.parsed["X-Jicket-Initial-ReplyID"] == self.parsed["In-Reply-To"]:
+            self.threadstarter = True
+
         self.rawmailcontent = None  # No need to store after processing
 
     def determineTicketID(self):
@@ -81,14 +88,21 @@ class ProcessedMail():
         """
         hashid = hashids.Hashids(salt=self.config.idSalt, alphabet=self.config.idAlphabet, min_length=self.config.idMinLength)
 
-        idregex = "\[%s-([%s]{%i,}?)\]" % (self.config.idPrefix, self.config.idAlphabet, self.config.idMinLength)
-        match = re.match(idregex, self.subject)
-        if match:
-            self.tickethash = match.group(1)
-            self.ticketid = hashid.decode(self.tickethash)
+        # See if hashid is set in headers
+        if self.parsed["X-Jicket-HashID"] is not None:
+            self.tickethash = self.parsed["X-Jicket-HashID"]
+            self.ticketid = hashid.decode(self.parsed["X-Jicket-HashID"])
         else:
-            self.tickethash = hashid.encode(self.uid)
-            self.ticketid = self.uid
+            idregex = "\\[#%s([%s]{%i,}?)\\]" % (re.escape(self.config.idPrefix), re.escape(self.config.idAlphabet), self.config.idMinLength)
+            match = re.search(idregex, self.subject)
+            if match:
+                self.tickethash = match.group(1)
+                self.ticketid = hashid.decode(self.tickethash)
+            else:
+                self.tickethash = hashid.encode(self.uid)
+                self.ticketid = self.uid
+
+        self.prefixedhash = self.config.idPrefix + self.tickethash
 
 
 class MailImporter():
@@ -156,7 +170,8 @@ class MailImporter():
     def moveImported(self, mail):
         """Move successfully imported mails to success folder"""
         self.IMAP.uid("copy", str(mail.uid).encode(), self.mailconfig.folderSuccess)
-        self.IMAP.uid("store", str(mail.uid).encode(), "+FLAGS", "(\Deleted)")
+        self.IMAP.uid("store", str(mail.uid).encode(), "+flags", "(\Deleted)")
+        self.IMAP.expunge()
 
 
 class MailExporter():
@@ -195,12 +210,15 @@ class MailExporter():
 
         # Add Jicket headers
         threadstarter["X-Jicket-HashID"] = mail.tickethash
+        # Initial ID this is a reply to. It is used to identify if this is a threadstarter email or regular mail.
+        # Treadstarter mails should be ignored on import, as they're only of informative nature.
+        threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"].rstrip()
 
         # Set other headers
         threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
         threadstarter["From"] = self.mailconfig.ticketAddress
         threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
-        threadstarter["Subject"] = "[#%s] %s" % (mail.tickethash, mail.subject)
+        threadstarter["Subject"] = "[#%s%s] %s" % (self.mailconfig.idPrefix, mail.tickethash, mail.subject)
 
         # Send mail
         self.sendmail(threadstarter)
