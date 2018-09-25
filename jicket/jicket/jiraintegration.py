@@ -1,7 +1,7 @@
 """Creates or updates issue from Mail"""
 
 from typing import List, Tuple
-from jicket.mailimporter import ProcessedMail
+from jicket.mailhandling import ProcessedMail
 import jira
 import jicket.log as log
 import html2text
