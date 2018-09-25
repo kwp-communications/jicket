@@ -34,7 +34,7 @@ class MailConfig():
 
         self.ticketAddress = None       # type: str # Address of jicket mailbox
 
-        self.idPrefix = "JI"    # type: str
+        self.idPrefix = "JI-"    # type: str
         self.idSalt = "JicketSalt"  # type: str
         self.idAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"    # type: str
         self.idMinLength = 6    # type: int
@@ -87,7 +87,7 @@ class ProcessedMail():
         """
         hashid = hashids.Hashids(salt=self.config.idSalt, alphabet=self.config.idAlphabet, min_length=self.config.idMinLength)
 
-        idregex = "\[%s-([%s]{%i,}?)\]" % (self.config.idPrefix, self.config.idAlphabet, self.config.idMinLength)
+        idregex = "\[%s([%s]{%i,}?)\]" % (self.config.idPrefix, self.config.idAlphabet, self.config.idMinLength)
         match = re.match(idregex, self.subject)
         if match:
             self.tickethash = match.group(1)
@@ -210,7 +210,7 @@ class MailExporter():
         threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
         threadstarter["From"] = self.mailconfig.ticketAddress
         threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
-        threadstarter["Subject"] = "[#%s] %s" % (mail.tickethash, mail.subject)
+        threadstarter["Subject"] = "[#%s%s] %s" % (self.mailconfig.idPrefix, mail.tickethash, mail.subject)
 
         # Send mail
         self.sendmail(threadstarter)
