@@ -5,11 +5,15 @@ Reads all emails from a mailbox with IMAP. After the emails are parsed by jicket
 
 from typing import Union, List
 import imaplib
+import smtplib
 import ssl
 import jicket.log as log
 import email.parser
+import email.mime.text
 import hashids
 import re
+
+from pathlib import Path
 
 class MailConfig():
     """Configuration for MailImporter"""
@@ -19,9 +23,16 @@ class MailConfig():
         self.IMAPUser = None    # type: str
         self.IMAPPass = None    # type: str
 
+        self.SMTPHost = None    # type: str
+        self.SMTPPort = 587     # type: int
+        self.SMTPUser = None    # type: str
+        self.SMTPPass = None    # Type: str
+
         self.folderInbox = "INBOX"    # type: str               # Folder from which incoming messages are retrieved
-        self.folderSuccess = "ticket-success"    # type: str    # Where mails shall be put on import success
-        self.folderFailure = "ticket-fail"  # type: str         # Where mails shall be put in import fail
+        self.folderSuccess = "jicket-incoming"    # type: str   # Where mails shall be put after import
+        self.threadStartTemplate = Path("threadtemplate.html")  # type: Path
+
+        self.ticketAddress = None       # type: str # Address of jicket mailbox
 
         self.idPrefix = "JI"    # type: str
         self.idSalt = "JicketSalt"  # type: str
@@ -50,10 +61,14 @@ class ProcessedMail():
         """Parse email and fetch body and all attachments"""
         self.parsed = email.message_from_bytes(self.rawmailcontent) # type: email.message.EmailMessage
 
-        for part in self.parsed.get_payload():
-            if part.get_content_maintype() == "text":
-                # Append all text parts together. Usually there shouldn't be more than one text part.
-                self.body += part.get_payload(decode=True).decode(part.get_content_charset())
+        if self.parsed.is_multipart():
+            for part in self.parsed.get_payload():
+                if part.get_content_maintype() == "text":
+                    # Append all text parts together. Usually there shouldn't be more than one text part.
+                    self.body += part.get_payload(decode=True).decode(part.get_content_charset())
+        else:
+            if self.parsed.get_content_maintype() == "text":
+                self.body += self.parsed.get_payload()
 
         self.subject = self.parsed["subject"]
         # TODO: Get all attachments
@@ -88,7 +103,7 @@ class MailImporter():
 
     def login(self):
         """Connects to the mailbox and logs in."""
-        self.IMAP = imaplib.IMAP4_SSL("outlook.office365.com", 993, ssl_context=ssl.create_default_context())
+        self.IMAP = imaplib.IMAP4_SSL(self.mailconfig.IMAPHost, 993, ssl_context=ssl.create_default_context())
         try:
             self.IMAP.login(self.mailconfig.IMAPUser, self.mailconfig.IMAPPass)
         except:
@@ -109,10 +124,6 @@ class MailImporter():
         response = self.IMAP.select(self.mailconfig.folderSuccess)
         if response[0] != "OK":
             log.error("Error accessing Folder '%s': %s" % (self.mailconfig.folderSuccess, response[1][0].decode()))
-            # TODO: Raise exception
-        response = self.IMAP.select(self.mailconfig.folderFailure)
-        if response[0] != "OK":
-            log.error("Error accessing Folder '%s': %s" % (self.mailconfig.folderFailure, response[1][0].decode()))
             # TODO: Raise exception
 
 
@@ -143,3 +154,50 @@ class MailImporter():
 
 
         return mails
+
+
+class MailExporter():
+    """Sends out mails via SMTP"""
+    def __init__(self, mailconfig: MailConfig):
+        self.mailconfig = mailconfig    # type: MailConfig
+
+    def login(self):
+        self.SMTP = smtplib.SMTP(self.mailconfig.SMTPHost, self.mailconfig.SMTPPort)
+        self.SMTP.ehlo()
+        self.SMTP.starttls()
+        self.SMTP.ehlo()
+        try:
+            self.SMTP.login(self.mailconfig.SMTPUser, self.mailconfig.SMTPPass)
+        except smtplib.SMTPAuthenticationError:
+            log.error("SMTP login failed. Are your login credentials correct?")
+            raise
+
+    def quit(self):
+        self.SMTP.quit()
+
+    def sendmail(self, mail: email.message.Message):
+        self.SMTP.sendmail(mail["From"], mail["To"].split(","), mail.as_string())
+
+    def sendTicketStart(self, mail: ProcessedMail):
+        """Sends the initial mail to start an email thread from an incoming email"""
+
+        with self.mailconfig.threadStartTemplate.open("r") as f:
+            responsehtml = f.read()
+            responsehtml = responsehtml % {
+                "ticketid": mail.tickethash,
+                "subject": mail.subject
+            }
+
+        threadstarter = email.mime.text.MIMEText(responsehtml, "html")
+
+        # Add Jicket headers
+        threadstarter["X-Jicket-HashID"] = mail.tickethash
+
+        # Set other headers
+        threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
+        threadstarter["From"] = self.mailconfig.ticketAddress
+        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
+        threadstarter["Subject"] = "[#%s] %s" % (mail.tickethash, mail.subject)
+
+        # Send mail
+        self.sendmail(threadstarter)
