@@ -39,9 +39,10 @@ class MailConfig():
         self.idAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"    # type: str
         self.idMinLength = 6    # type: int
 
-    def checkValidity(self):
+    def checkValidity(self) -> bool:
         """Checks if configuration parameters are valid"""
-        pass
+        log.warning("Mail config validity check not yet implemented!")
+        return True
 
 class ProcessedMail():
     def __init__(self, uid: int, rawmailcontent: bytes, config: MailConfig):

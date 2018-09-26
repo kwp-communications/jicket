@@ -14,6 +14,11 @@ class JiraConfig():
         self.jiraPass = None    # type: str
         self.project = None   # type: str
 
+    def checkValidity(self) -> bool:
+        """Checks if configuration parameters are valid"""
+        log.warning("Jira config validity check not yet implemented!")
+        return True
+
 
 class JiraIntegration():
     def __init__(self, mail: ProcessedMail, config: JiraConfig):
@@ -53,7 +58,7 @@ class JiraIntegration():
 
         # Construct string for description
         description = ""
-        description += "Imported by Jicket (SequentialID: %i)" % self.mail.ticketid
+        description += "Imported by Jicket (SequentialID: %i)\n" % self.mail.ticketid
         description += "From: %s\n\n\n" % self.mail.parsed["From"]
         description += re.sub("(\n.*?)\n", "\g<1>", html2text.html2text(self.mail.body))    # Remove every second newline which is added to distinguish between paragraphs in Markdown, but makes the jira ticket hard to read.
 
