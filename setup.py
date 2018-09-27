@@ -11,5 +11,8 @@ setup(
         "hashids>=1,<2",
         "jira>=2",
         "html2text"
+    ],
+    scripts=[
+        "jicket/bin/jicket.py"
     ]
 )
