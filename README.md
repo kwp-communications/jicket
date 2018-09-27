@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/jicket/badge/?version=stable)](https://jicket.readthedocs.io/en/latest/?badge=stable)
+
 # Jicket
 
 Jicket allows you to use Jira as a simple service helpdesk.
