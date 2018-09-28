@@ -9,7 +9,7 @@ It creates new issues for incoming mails and automatically adds email replies as
 You can find the documentation [here](https://jicket.readthedocs.io/en/latest/).
 
 # Contributing
-See [CONTRIBUTING.md]
+See [CONTRIBUTING](CONTRIBUTING.md)
 
 # License
-MIT License, see [LICENSE] for the full license.
+MIT License, see [LICENSE](LICENSE) for the full license.
