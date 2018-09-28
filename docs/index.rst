@@ -12,7 +12,13 @@ It automatically creates issues for incoming emails and appends responses as com
 
 .. toctree::
    :maxdepth: 2
-   :caption: Setup:
+   :caption: General
+
+   howitworks
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Setup
 
    installation
    configuration
