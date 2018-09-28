@@ -3,13 +3,25 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Jicket's documentation!
+Welcome to Jicket
 ==================================
+
+Jicket enables you to create a basic service helpdesk in Jira using Emails.
+It automatically creates issues for incoming emails and appends responses as comments.
+
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: General
 
+   howitworks
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Setup
+
+   installation
+   configuration
 
 
 Indices and tables
