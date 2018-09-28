@@ -1,3 +1,4 @@
 hashids
 jira
 html2text
+sphinx_rtd_theme
