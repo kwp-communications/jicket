@@ -13,6 +13,6 @@ setup(
         "html2text"
     ],
     scripts=[
-        "jicket/bin/jicket.py"
+        "jicket/bin/jicket"
     ]
 )
