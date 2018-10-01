@@ -1,8 +1,11 @@
 from distutils.core import setup
 
+with open("VERSION", "r") as f:
+    VERSION = f.read()
+
 setup(
     name='Jicket',
-    version='0.1.0',
+    version=VERSION,
     package_dir={'': 'jicket'},
     packages=['jicket'],
     license='MIT',
