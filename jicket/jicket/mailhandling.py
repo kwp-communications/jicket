@@ -185,7 +185,7 @@ class MailExporter():
         self.SMTP.quit()
 
     def sendmail(self, mail: email.message.Message):
-        self.SMTP.sendmail(mail["From"], mail["To"].split(","), mail.as_string())
+        self.SMTP.sendmail(mail["From"], mail["To"].split(",") + mail["CC"].split(","), mail.as_string())
 
     def sendTicketStart(self, mail: ProcessedMail):
         """Sends the initial mail to start an email thread from an incoming email"""
@@ -207,6 +207,7 @@ class MailExporter():
 
         # Set other headers
         threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
+        threadstarter["CC"] = mail.parsed["CC"]
         threadstarter["From"] = self.mailconfig.ticketAddress
         threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
         threadstarter["Subject"] = "[#%s%s] %s" % (self.mailconfig.idPrefix, mail.tickethash, mail.subject)
