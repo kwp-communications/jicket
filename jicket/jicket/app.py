@@ -79,7 +79,7 @@ def jicketapp():
                         **argparse_env("JICKET_FOLDER_INBOX", "INBOX"))
     parser.add_argument("--foldersuccess", type=str,
                         help="Folder in which successfully imported mails are put",
-                        **argparse_env("JICKET_FOLDER_SUCCESS", "jicket-incoming"))
+                        **argparse_env("JICKET_FOLDER_SUCCESS", "jicket"))
     parser.add_argument("--threadtemplate", type=str,
                         help="Folder in which successfully imported mails are put",
                         **argparse_env("JICKET_THREAD_TEMPLATE"))
