@@ -1,4 +1,4 @@
-[![Documentation Status](https://readthedocs.org/projects/jicket/badge/?version=stable)](https://jicket.readthedocs.io/en/latest/?badge=stable)
+[![Documentation Status](https://readthedocs.org/projects/jicket/badge/?version=stable)](https://jicket.readthedocs.io/en/stable/?badge=stable)
 
 # Jicket
 
