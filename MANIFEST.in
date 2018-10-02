@@ -1,0 +1,5 @@
+recursive-include jicket *.py
+include jicket/bin/jicket
+include README.md
+include VERSION
+include LICENSE

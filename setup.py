@@ -1,12 +1,16 @@
-from distutils.core import setup
+from setuptools import setup
+
+with open("VERSION", "r") as f:
+    VERSION = f.read()
 
 setup(
-    name='Jicket',
-    version='0.1.0',
+    name='jicket',
+    version=VERSION + "foo",
     package_dir={'': 'jicket'},
     packages=['jicket'],
     license='MIT',
     long_description=open('README.md').read(),
+    long_description_content_type="text/markdown",
     install_requires=[
         "hashids>=1,<2",
         "jira>=2",
