@@ -5,7 +5,7 @@ with open("VERSION", "r") as f:
 
 setup(
     name='jicket',
-    version=VERSION + "foo",
+    version=VERSION,
     package_dir={'': 'jicket'},
     packages=['jicket'],
     license='MIT',
