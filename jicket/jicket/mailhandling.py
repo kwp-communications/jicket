@@ -65,17 +65,7 @@ class ProcessedMail():
         """Parse email and fetch body and all attachments"""
         self.parsed = email.message_from_bytes(self.rawmailcontent) # type: email.message.EmailMessage
 
-        if self.parsed.is_multipart():
-            for part in self.parsed.get_payload():
-                if part.get_content_maintype() == "text":
-                    # Append all text parts together. Usually there shouldn't be more than one text part.
-                    self.body += part.get_payload(decode=True).decode(part.get_content_charset())
-        else:
-            if self.parsed.get_content_maintype() == "text":
-                self.body += self.parsed.get_payload()
-
         self.subject = self.parsed["subject"]
-        # TODO: Get all attachments
 
         if self.parsed["X-Jicket-Initial-ReplyID"] is not None and self.parsed["X-Jicket-Initial-ReplyID"] == self.parsed["In-Reply-To"]:
             self.threadstarter = True
@@ -195,7 +185,7 @@ class MailExporter():
         self.SMTP.quit()
 
     def sendmail(self, mail: email.message.Message):
-        self.SMTP.sendmail(mail["From"], mail["To"].split(","), mail.as_string())
+        self.SMTP.sendmail(mail["From"], mail["To"].split(",") + mail["CC"].split(","), mail.as_string())
 
     def sendTicketStart(self, mail: ProcessedMail):
         """Sends the initial mail to start an email thread from an incoming email"""
@@ -217,6 +207,7 @@ class MailExporter():
 
         # Set other headers
         threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
+        threadstarter["CC"] = mail.parsed["CC"]
         threadstarter["From"] = self.mailconfig.ticketAddress
         threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
         threadstarter["Subject"] = "[#%s%s] %s" % (self.mailconfig.idPrefix, mail.tickethash, mail.subject)
