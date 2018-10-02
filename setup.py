@@ -4,7 +4,7 @@ with open("VERSION", "r") as f:
     VERSION = f.read()
 
 setup(
-    name='Jicket',
+    name='jicket',
     version=VERSION + "foo",
     package_dir={'': 'jicket'},
     packages=['jicket'],
