@@ -99,7 +99,7 @@ Jira
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Configuration of jira instance on which new issues shall be created from incoming emails.
 
-Host
+URL
 """"""""""""""""""""""""""""""""""
 :Environment:   ``JICKET_JIRA_URL``
 :CLI:           ``--jiraurl``
@@ -108,7 +108,7 @@ Host
 :Description:   URL of Jira instance that shall be used
 :Example:       ``jira.example.com``
 
-Port
+User
 """"""""""""""""""""""""""""""""""
 :Environment:   ``JICKET_JIRA_USER``
 :CLI:           ``--jirauser``
@@ -117,7 +117,7 @@ Port
 :Description:   Username for Jira access
 :Example:       ``foo@example.com``
 
-User
+Password
 """"""""""""""""""""""""""""""""""
 :Environment:   ``JICKET_JIRA_PASS``
 :CLI:           ``--jirapass``
@@ -126,7 +126,7 @@ User
 :Description:   Password for Jira user
 :Example:       ``correcthorsebatterystaple``
 
-Password
+Project
 """"""""""""""""""""""""""""""""""
 :Environment:   ``JICKET_JIRA_PROJECT``
 :CLI:           ``--jiraproject``
