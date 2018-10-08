@@ -23,12 +23,12 @@ project = 'Jicket'
 copyright = '2018, KWP GmbH & Co. KG'
 author = 'KWP GmbH & Co. KG'
 
-# The short X.Y version
-version = ''
 # The full version, including alpha/beta/rc tags
 with open("../VERSION", "r") as f:
     release = f.read()
 
+# The short X.Y version
+version = release
 
 # -- General configuration ---------------------------------------------------
 
