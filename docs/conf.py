@@ -23,11 +23,21 @@ project = 'Jicket'
 copyright = '2018, KWP GmbH & Co. KG'
 author = 'KWP GmbH & Co. KG'
 
-# The short X.Y version
-version = ''
+
 # The full version, including alpha/beta/rc tags
 with open("../VERSION", "r") as f:
     release = f.read()
+
+# The short X.Y version
+def getVersionFromRelease(release):
+    """Get major and minor version from semver of release"""
+    versionparts = release.split(".")
+    if len(versionparts) >= 2:
+        return versionparts[0] + "." + versionparts[1]
+    else:
+        print("VERSION seems to not contain a valid SemVer version!")
+        return release
+version = getVersionFromRelease(release)
 
 
 # -- General configuration ---------------------------------------------------
