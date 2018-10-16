@@ -185,7 +185,10 @@ class MailExporter():
         self.SMTP.quit()
 
     def sendmail(self, mail: email.message.Message):
-        self.SMTP.sendmail(mail["From"], mail["To"].split(",") + mail["CC"].split(","), mail.as_string())
+        recipients = mail["To"].split(",")
+        if mail["CC"]:
+            recipients += mail["CC"].split(",")
+        self.SMTP.sendmail(mail["From"], recipients, mail.as_string())
 
     def sendTicketStart(self, mail: ProcessedMail):
         """Sends the initial mail to start an email thread from an incoming email"""
