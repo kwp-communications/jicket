@@ -69,6 +69,8 @@ class ProcessedMail():
 
         if self.parsed["X-Jicket-Initial-ReplyID"] is not None and self.parsed["X-Jicket-Initial-ReplyID"] == self.parsed["In-Reply-To"]:
             self.threadstarter = True
+        elif self.config.ticketAddress in self.parsed["From"]:  # Take more heuristic approach
+            self.threadstarter = True
 
         self.rawmailcontent = None  # No need to store after processing
 
@@ -200,9 +202,7 @@ class MailExporter():
                 "subject": mail.subject
             }
 
-        # In case headers get stripped, this is the only way to identify this mail as thread starter
-        threadstartmarker = "<!-- X-Jicket-Initial-ReplyID=%s -->\r\n" % mail.parsed["Message-ID"].rstrip().lstrip()
-        threadstarter = email.mime.text.MIMEText(threadstartmarker + responsehtml, "html")
+        threadstarter = email.mime.text.MIMEText(responsehtml, "html")
 
         # Add Jicket headers
         threadstarter["X-Jicket-HashID"] = mail.tickethash
