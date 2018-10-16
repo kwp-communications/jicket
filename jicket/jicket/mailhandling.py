@@ -69,6 +69,8 @@ class ProcessedMail():
 
         if self.parsed["X-Jicket-Initial-ReplyID"] is not None and self.parsed["X-Jicket-Initial-ReplyID"] == self.parsed["In-Reply-To"]:
             self.threadstarter = True
+        elif self.config.ticketAddress in self.parsed["From"]:  # Take more heuristic approach
+            self.threadstarter = True
 
         self.rawmailcontent = None  # No need to store after processing
 
@@ -185,7 +187,10 @@ class MailExporter():
         self.SMTP.quit()
 
     def sendmail(self, mail: email.message.Message):
-        self.SMTP.sendmail(mail["From"], mail["To"].split(",") + mail["CC"].split(","), mail.as_string())
+        recipients = mail["To"].split(",")
+        if mail["CC"]:
+            recipients += mail["CC"].split(",")
+        self.SMTP.sendmail(mail["From"], recipients, mail.as_string())
 
     def sendTicketStart(self, mail: ProcessedMail):
         """Sends the initial mail to start an email thread from an incoming email"""
@@ -203,13 +208,13 @@ class MailExporter():
         threadstarter["X-Jicket-HashID"] = mail.tickethash
         # Initial ID this is a reply to. It is used to identify if this is a threadstarter email or regular mail.
         # Treadstarter mails should be ignored on import, as they're only of informative nature.
-        threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"].rstrip()
+        threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"].rstrip().lstrip()
 
         # Set other headers
         threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
         threadstarter["CC"] = mail.parsed["CC"]
         threadstarter["From"] = self.mailconfig.ticketAddress
-        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
+        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip().lstrip()
         threadstarter["Subject"] = "[#%s%s] %s" % (self.mailconfig.idPrefix, mail.tickethash, mail.subject)
 
         # Send mail
