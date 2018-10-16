@@ -61,7 +61,9 @@ Also take a look at all the files contained in the folder.
 -------------------------
 Build and tag the image with
 
-  ``docker build release/docker -t kwpgmbh/jicket:"$(< VERSION)"``
+  ``docker build release/docker -t kwpcommunications/jicket:"$(< VERSION)"``
+
+  ``docker build release/docker -t kwpcommunications/jicket:latest``
 
 
 Then log in to docker with
@@ -70,4 +72,6 @@ Then log in to docker with
 
 and push the image
 
-  ``docker push kwpgmbh/jicket:"$(< VERSION)"``
+  ``docker push kwpcommunications/jicket:"$(< VERSION)"``
+
+  ``docker push kwpcommunications/jicket:latest``
