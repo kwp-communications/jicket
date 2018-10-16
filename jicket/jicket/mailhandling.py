@@ -200,19 +200,21 @@ class MailExporter():
                 "subject": mail.subject
             }
 
-        threadstarter = email.mime.text.MIMEText(responsehtml, "html")
+        # In case headers get stripped, this is the only way to identify this mail as thread starter
+        threadstartmarker = "<!-- X-Jicket-Initial-ReplyID=%s -->\r\n" % mail.parsed["Message-ID"].rstrip().lstrip()
+        threadstarter = email.mime.text.MIMEText(threadstartmarker + responsehtml, "html")
 
         # Add Jicket headers
         threadstarter["X-Jicket-HashID"] = mail.tickethash
         # Initial ID this is a reply to. It is used to identify if this is a threadstarter email or regular mail.
         # Treadstarter mails should be ignored on import, as they're only of informative nature.
-        threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"].rstrip()
+        threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"].rstrip().lstrip()
 
         # Set other headers
         threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
         threadstarter["CC"] = mail.parsed["CC"]
         threadstarter["From"] = self.mailconfig.ticketAddress
-        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip()
+        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip().lstrip()
         threadstarter["Subject"] = "[#%s%s] %s" % (self.mailconfig.idPrefix, mail.tickethash, mail.subject)
 
         # Send mail
