@@ -41,7 +41,13 @@ class MailConfig():
 
     def checkValidity(self) -> bool:
         """Checks if configuration parameters are valid"""
-        log.warning("Mail config validity check not yet implemented!")
+        match = re.match("[^@\s]+@[^@\s]+\.[^@\s]+", self.ticketAddress)
+        if not match:
+            raise Exception("Ticket address must be in format: aaaa@bbbb.cc (is: %s)" % self.ticketAddress)
+
+        if self.idMinLength < 0:
+            raise Exception("Minimum ID length must be 0 or greater (is: %s)" % self.idMinLength)
+
         return True
 
 class ProcessedMail():
