@@ -137,8 +137,6 @@ def jicketapp():
 
     if mailconf.checkValidity():
         log.success("Email configuration valid")
-    if mailconf.checkValidity():
-        log.success("Jira configuration valid")
 
     loopmodes = ["dynamic", "interval"]
     if args.loopmode not in loopmodes:
