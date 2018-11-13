@@ -1,0 +1,4 @@
+hashids>=1,<2
+jira>=2
+html2text
+jicket
