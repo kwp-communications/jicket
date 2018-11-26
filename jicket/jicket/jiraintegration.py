@@ -14,10 +14,6 @@ class JiraConfig():
         self.jiraPass = None    # type: str
         self.project = None   # type: str
 
-    def checkValidity(self) -> bool:
-        """Checks if configuration parameters are valid"""
-        log.warning("Jira config validity check not yet implemented!")
-        return True
 
 
 class JiraIntegration():

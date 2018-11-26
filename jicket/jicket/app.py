@@ -17,6 +17,7 @@ class LoopHandler():
         self.looptime = looptime    # type: int
         self.lastExecuted = 0       # type: float
         self.firstExecution = True
+        self.continuerunning = True
 
     def tick(self) -> bool:
         pass
@@ -39,6 +40,11 @@ class IntervalLoop(LoopHandler):
             return True
         else:
             return False
+
+class Singleshot(LoopHandler):
+    def tick(self) -> bool:
+        self.continuerunning = False
+        return True
 
 
 def argparse_env(varname, default=None):
@@ -137,10 +143,8 @@ def jicketapp():
 
     if mailconf.checkValidity():
         log.success("Email configuration valid")
-    if mailconf.checkValidity():
-        log.success("Jira configuration valid")
 
-    loopmodes = ["dynamic", "interval"]
+    loopmodes = ["dynamic", "interval", "singleshot"]
     if args.loopmode not in loopmodes:
         raise ValueError("Invalid loopmode: %s (Allowed values: %s)" % (args.loopmode, loopmodes))
 
@@ -149,14 +153,16 @@ def jicketapp():
         loophandler = DynamicLoop(args.looptime)
     if args.loopmode == "interval":
         loophandler = IntervalLoop(args.looptime)
+    if args.loopmode == "singleshot":
+        loophandler = Singleshot(args.looptime)
 
     mailimporter = mailhandling.MailImporter(mailconf)
 
     log.success("Initialization successful")
-    log.info("Beginning main loop")
+    log.info("Beginning main loop (mode: %s)" % args.loopmode)
 
     # Enter main loop
-    while True:
+    while loophandler.continuerunning:
         if loophandler.tick():
             newissues = False
             # Fetch new mails
