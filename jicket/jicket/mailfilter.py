@@ -68,9 +68,10 @@ class MailFilter():
                 filtered = True
                 description.append("BLACKLISTED: %s" % blacklistfilter.description)
 
-        for whitelistfilter in self.whitelist:
-            if whitelistfilter.filtermail(mail):
-                filtered = False
-                description.append("WHITELISTED: %s" % whitelistfilter.description)
+        if filtered:
+            for whitelistfilter in self.whitelist:
+                if whitelistfilter.filtermail(mail):
+                    filtered = False
+                    description.append("WHITELISTED: %s" % whitelistfilter.description)
 
         return (filtered, description)
