@@ -12,12 +12,15 @@ class FilterRule():
         self.addresspattern = None
         self.subjectpattern = None
         self.description = "NO DESCRIPTION GIVEN"
+        self.ignorecase = False
         if "addresspattern" in config:
             self.addresspattern: str = config["addresspattern"]
         if "subjectpattern" in config:
             self.subjectpattern: str = config["subjectpattern"]
         if "description" in config:
             self.description = config["description"]
+        if "ignorecase" in config:
+            self.ignorecase = config["ignorecase"]
 
     def filtermail(self, mail: ProcessedMail) -> bool:
         """
@@ -26,9 +29,12 @@ class FilterRule():
         :return: Returns whether the filter has a positive match
         :rtype: bool
         """
-        if self.subjectpattern is not None and re.search(self.subjectpattern, mail.subject):
+        reflags = 0
+        if self.ignorecase:
+            reflags = reflags | re.IGNORECASE
+        if self.subjectpattern is not None and re.search(self.subjectpattern, mail.subject, reflags):
             return True
-        if self.addresspattern is not None and re.search(self.addresspattern, mail.fromaddr):
+        if self.addresspattern is not None and re.search(self.addresspattern, mail.fromaddr, reflags):
             return True
         return False
 
