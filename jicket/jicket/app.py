@@ -10,6 +10,7 @@ import time
 import jicket.log as log
 import jicket.mailhandling as mailhandling
 import jicket.jiraintegration as jiraintegration
+from jicket.mailfilter import MailFilter
 
 
 class LoopHandler():
@@ -92,6 +93,9 @@ def jicketapp():
 
     parser.add_argument("--ticketaddress", type=str, help="Email-address of Helpdesk",
                         **argparse_env("JICKET_TICKET_ADDRESS"))
+    parser.add_argument("--filterconfig", type=str,
+                        help="Path to file containing filter config, if any",
+                        **argparse_env("JICKET_FILTER_CONFIG", ""))
 
     parser.add_argument("--idprefix", type=str, help="Prefix for ticket IDs",
                         **argparse_env("JICKET_ID_PREFIX", "JI-"))
@@ -158,6 +162,12 @@ def jicketapp():
 
     mailimporter = mailhandling.MailImporter(mailconf)
 
+    if args.filterconfig:
+        filterconfigpath = Path(args.filterconfig)
+        mailfilter = MailFilter(filterconfigpath)
+    else:
+        mailfilter = None
+
     log.success("Initialization successful")
     log.info("Beginning main loop (mode: %s)" % args.loopmode)
 
@@ -171,6 +181,20 @@ def jicketapp():
             mailimporter.logout()
 
             for mail in mails:
+                # Check if mail ist filtered
+                if mailfilter is not None:
+                    filtered, reason = mailfilter.filtermail(mail)
+                    if filtered:
+                        log.info("Mail '%s' from '%s' was filtered for the following reason(s):" % (mail.subject, mail.fromaddr))
+                        for r in reason:    # Print the reasons for filtering
+                            log.info(r)
+                        mailimporter.moveImported(mail)
+                        continue
+                    elif reason:
+                        log.info("Mail '%s' was filtered but saved by a whitelist for following reason(s):" % mail.subject)
+                        for r in reason:  # Print the reasons for filtering
+                            log.info(r)
+
                 # Mail is initial confirmation mail
                 if mail.threadstarter:
                     mailimporter.moveImported(mail)

@@ -10,10 +10,26 @@ import ssl
 import jicket.log as log
 import email.parser
 import email.mime.text
+import email.header
 import hashids
 import re
 
 from pathlib import Path
+
+
+def decodeheader(header: str) -> str:
+    decoded = ""
+
+    for decodedpart in email.header.decode_header(header):
+        msg = decodedpart[0]
+        charset = decodedpart[1]
+        if charset is not None:
+            decoded += bytes.decode(msg, charset)
+        else:
+            decoded += msg
+
+    return decoded
+
 
 class MailConfig():
     """Configuration for MailImporter"""
@@ -57,6 +73,7 @@ class ProcessedMail():
         self.config = config
 
         self.body = ""  # type: str
+        self.fromaddr = None
         self.parsed = None  # type: email.message.Message
         self.ticketid = None    # type: int # ID of ticket
         self.tickethash = None  # type: str # Hashed ticket ID
@@ -71,7 +88,8 @@ class ProcessedMail():
         """Parse email and fetch body and all attachments"""
         self.parsed = email.message_from_bytes(self.rawmailcontent) # type: email.message.EmailMessage
 
-        self.subject = self.parsed["subject"]
+        self.subject = decodeheader(self.parsed["subject"])
+        self.fromaddr = decodeheader(self.parsed["From"])
 
         if self.parsed["X-Jicket-Initial-ReplyID"] is not None and self.parsed["X-Jicket-Initial-ReplyID"] == self.parsed["In-Reply-To"]:
             self.threadstarter = True
