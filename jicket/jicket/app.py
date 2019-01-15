@@ -185,7 +185,7 @@ def jicketapp():
                 if mailfilter is not None:
                     filtered, reason = mailfilter.filtermail(mail)
                     if filtered:
-                        log.info("Mail '%s' from '%s' was filtered for the following reason(s):" % (mail.subject, mail.fromaddr))
+                        log.info("Mail '%s' from '%s' was filtered for the following reason(s):" % (mail.subject, mail.parsed["from"]))
                         for r in reason:    # Print the reasons for filtering
                             log.info(r)
                         mailimporter.moveImported(mail)

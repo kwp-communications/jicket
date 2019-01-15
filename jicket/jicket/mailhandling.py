@@ -11,6 +11,7 @@ import jicket.log as log
 import email.parser
 import email.mime.text
 import email.header
+import email.policy
 import hashids
 import re
 
@@ -86,10 +87,9 @@ class ProcessedMail():
 
     def process(self) -> None:
         """Parse email and fetch body and all attachments"""
-        self.parsed = email.message_from_bytes(self.rawmailcontent) # type: email.message.EmailMessage
+        self.parsed = email.message_from_bytes(self.rawmailcontent, policy=email.policy.EmailPolicy())    # type: email.message.EmailMessage
 
-        self.subject = decodeheader(self.parsed["subject"])
-        self.fromaddr = decodeheader(self.parsed["From"])
+        self.subject = self.parsed["subject"]
 
         if self.parsed["X-Jicket-Initial-ReplyID"] is not None and self.parsed["X-Jicket-Initial-ReplyID"] == self.parsed["In-Reply-To"]:
             self.threadstarter = True
@@ -211,9 +211,13 @@ class MailExporter():
         self.SMTP.quit()
 
     def sendmail(self, mail: email.message.Message):
-        recipients = mail["To"].split(",")
-        if mail["CC"]:
-            recipients += mail["CC"].split(",")
+        recipients = []
+        for addr in mail["to"].addresses:
+            recipients.append(str(addr))
+        if mail["cc"]:
+            for addr in mail["cc"].addresses:
+                recipients.append(str(addr))
+
         self.SMTP.sendmail(mail["From"], recipients, mail.as_string())
 
     def sendTicketStart(self, mail: ProcessedMail):
