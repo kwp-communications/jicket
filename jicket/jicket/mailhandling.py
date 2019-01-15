@@ -10,10 +10,27 @@ import ssl
 import jicket.log as log
 import email.parser
 import email.mime.text
+import email.header
+import email.policy
 import hashids
 import re
 
 from pathlib import Path
+
+
+def decodeheader(header: str) -> str:
+    decoded = ""
+
+    for decodedpart in email.header.decode_header(header):
+        msg = decodedpart[0]
+        charset = decodedpart[1]
+        if charset is not None:
+            decoded += bytes.decode(msg, charset)
+        else:
+            decoded += msg
+
+    return decoded
+
 
 class MailConfig():
     """Configuration for MailImporter"""
@@ -52,24 +69,23 @@ class MailConfig():
 
 class ProcessedMail():
     def __init__(self, uid: int, rawmailcontent: bytes, config: MailConfig):
-        self.uid = uid  # type: int # Email UID from mailbox. See RFC3501 2.3.1.1.
-        self.rawmailcontent = rawmailcontent    # type: bytes
+        self.uid: int = uid     # Email UID from mailbox. See RFC3501 2.3.1.1.
+        self.rawmailcontent: bytes = rawmailcontent     # Email as it comes from IMAP server
         self.config = config
 
-        self.body = ""  # type: str
-        self.parsed = None  # type: email.message.Message
-        self.ticketid = None    # type: int # ID of ticket
-        self.tickethash = None  # type: str # Hashed ticket ID
-        self.prefixedhash = None    # type: str # Hashed ticket ID with prefix
+        self.parsed: email.message.Message = None   # parsed email object
+        self.ticketid: int = None       # ID of ticket
+        self.tickethash: str = None     # Hashed ticket ID
+        self.prefixedhash: str = None   # Hashed ticket ID with prefix
 
-        self.threadstarter = False
+        self.threadstarter: bool = False  # Whether mail is threadstarter
 
         self.process()
         self.determineTicketID()
 
     def process(self) -> None:
         """Parse email and fetch body and all attachments"""
-        self.parsed = email.message_from_bytes(self.rawmailcontent) # type: email.message.EmailMessage
+        self.parsed = email.message_from_bytes(self.rawmailcontent, policy=email.policy.EmailPolicy())    # type: email.message.EmailMessage
 
         self.subject = self.parsed["subject"]
 
@@ -193,9 +209,13 @@ class MailExporter():
         self.SMTP.quit()
 
     def sendmail(self, mail: email.message.Message):
-        recipients = mail["To"].split(",")
-        if mail["CC"]:
-            recipients += mail["CC"].split(",")
+        recipients = []
+        for addr in mail["to"].addresses:
+            recipients.append(str(addr))
+        if mail["cc"]:
+            for addr in mail["cc"].addresses:
+                recipients.append(str(addr))
+
         self.SMTP.sendmail(mail["From"], recipients, mail.as_string())
 
     def sendTicketStart(self, mail: ProcessedMail):

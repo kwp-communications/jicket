@@ -181,6 +181,14 @@ Ticket Address
                 will in turn receive the ticket creation confirmation.
 :Example:       ``support@example.com``
 
+Ticket Address
+""""""""""""""""""""""""""""""""""
+:Environment:   ``JICKET_FILTER_CONFIG``
+:CLI:           ``--filterconfig``
+:Type:          ``str``
+:Required:      No
+:Description:   Path to a JSON file containing the config for the email filter. See :doc:`filtering`
+:Example:       ``/etc/jicket/filter.json``
 
 
 Operation
