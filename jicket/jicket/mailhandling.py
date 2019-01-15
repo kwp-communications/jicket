@@ -69,18 +69,16 @@ class MailConfig():
 
 class ProcessedMail():
     def __init__(self, uid: int, rawmailcontent: bytes, config: MailConfig):
-        self.uid = uid  # type: int # Email UID from mailbox. See RFC3501 2.3.1.1.
-        self.rawmailcontent = rawmailcontent    # type: bytes
+        self.uid: int = uid     # Email UID from mailbox. See RFC3501 2.3.1.1.
+        self.rawmailcontent: bytes = rawmailcontent     # Email as it comes from IMAP server
         self.config = config
 
-        self.body = ""  # type: str
-        self.fromaddr = None
-        self.parsed = None  # type: email.message.Message
-        self.ticketid = None    # type: int # ID of ticket
-        self.tickethash = None  # type: str # Hashed ticket ID
-        self.prefixedhash = None    # type: str # Hashed ticket ID with prefix
+        self.parsed: email.message.Message = None   # parsed email object
+        self.ticketid: int = None       # ID of ticket
+        self.tickethash: str = None     # Hashed ticket ID
+        self.prefixedhash: str = None   # Hashed ticket ID with prefix
 
-        self.threadstarter = False
+        self.threadstarter: bool = False  # Whether mail is threadstarter
 
         self.process()
         self.determineTicketID()
