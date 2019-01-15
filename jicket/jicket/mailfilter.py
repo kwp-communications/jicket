@@ -34,7 +34,7 @@ class FilterRule():
             reflags = reflags | re.IGNORECASE
         if self.subjectpattern is not None and re.search(self.subjectpattern, mail.subject, reflags):
             return True
-        if self.addresspattern is not None and re.search(self.addresspattern, mail.fromaddr, reflags):
+        if self.addresspattern is not None and re.search(self.addresspattern, mail.parsed["from"], reflags):
             return True
         return False
 
