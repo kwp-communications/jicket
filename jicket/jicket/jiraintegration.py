@@ -6,14 +6,7 @@ import jira
 import jicket.log as log
 import html2text
 import re
-
-class JiraConfig():
-    def __init__(self):
-        self.jiraHost = None    # type: str
-        self.jiraUser = None    # type: str
-        self.jiraPass = None    # type: str
-        self.project = None   # type: str
-
+from jicket.config import JiraConfig
 
 
 class JiraIntegration():
