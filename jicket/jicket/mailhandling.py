@@ -14,6 +14,7 @@ import email.headerregistry
 import email.policy
 import hashids
 import re
+from jicket.mailprocessor import ProcessedMail
 from jicket.config import MailConfig
 
 from pathlib import Path
