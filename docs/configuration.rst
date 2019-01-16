@@ -181,6 +181,14 @@ Ticket Address
                 will in turn receive the ticket creation confirmation.
 :Example:       ``support@example.com``
 
+Ticket Address
+""""""""""""""""""""""""""""""""""
+:Environment:   ``JICKET_FILTER_CONFIG``
+:CLI:           ``--filterconfig``
+:Type:          ``str``
+:Required:      No
+:Description:   Path to a JSON file containing the config for the email filter. See :doc:`filtering`
+:Example:       ``/etc/jicket/filter.json``
 
 
 Operation
@@ -203,6 +211,10 @@ Loopmode
                 interval
                   Tries to run the main loop exactly every ``JICKET_LOOPTIME`` seconds. If main loop execution takes
                   longer than that, there is no break between subsequent executions.
+
+                singleshot
+                  Program runs exactly once and then exits. This is particularily useful if you run jicket as a
+                  serverless function, for example on AWS Lambda
 :Example:       ``interval``
 
 

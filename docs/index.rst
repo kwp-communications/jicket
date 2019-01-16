@@ -23,6 +23,7 @@ It automatically creates issues for incoming emails and appends responses as com
    installation
    configuration
    threadtemplate
+   filtering
 
 
 Indices and tables

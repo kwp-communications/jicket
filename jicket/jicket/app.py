@@ -10,6 +10,7 @@ import time
 import jicket.log as log
 import jicket.mailhandling as mailhandling
 import jicket.jiraintegration as jiraintegration
+from jicket.mailfilter import MailFilter
 
 
 class LoopHandler():
@@ -17,6 +18,7 @@ class LoopHandler():
         self.looptime = looptime    # type: int
         self.lastExecuted = 0       # type: float
         self.firstExecution = True
+        self.continuerunning = True
 
     def tick(self) -> bool:
         pass
@@ -39,6 +41,11 @@ class IntervalLoop(LoopHandler):
             return True
         else:
             return False
+
+class Singleshot(LoopHandler):
+    def tick(self) -> bool:
+        self.continuerunning = False
+        return True
 
 
 def argparse_env(varname, default=None):
@@ -86,6 +93,9 @@ def jicketapp():
 
     parser.add_argument("--ticketaddress", type=str, help="Email-address of Helpdesk",
                         **argparse_env("JICKET_TICKET_ADDRESS"))
+    parser.add_argument("--filterconfig", type=str,
+                        help="Path to file containing filter config, if any",
+                        **argparse_env("JICKET_FILTER_CONFIG", ""))
 
     parser.add_argument("--idprefix", type=str, help="Prefix for ticket IDs",
                         **argparse_env("JICKET_ID_PREFIX", "JI-"))
@@ -138,7 +148,7 @@ def jicketapp():
     if mailconf.checkValidity():
         log.success("Email configuration valid")
 
-    loopmodes = ["dynamic", "interval"]
+    loopmodes = ["dynamic", "interval", "singleshot"]
     if args.loopmode not in loopmodes:
         raise ValueError("Invalid loopmode: %s (Allowed values: %s)" % (args.loopmode, loopmodes))
 
@@ -147,14 +157,22 @@ def jicketapp():
         loophandler = DynamicLoop(args.looptime)
     if args.loopmode == "interval":
         loophandler = IntervalLoop(args.looptime)
+    if args.loopmode == "singleshot":
+        loophandler = Singleshot(args.looptime)
 
     mailimporter = mailhandling.MailImporter(mailconf)
 
+    if args.filterconfig:
+        filterconfigpath = Path(args.filterconfig)
+        mailfilter = MailFilter(filterconfigpath)
+    else:
+        mailfilter = None
+
     log.success("Initialization successful")
-    log.info("Beginning main loop")
+    log.info("Beginning main loop (mode: %s)" % args.loopmode)
 
     # Enter main loop
-    while True:
+    while loophandler.continuerunning:
         if loophandler.tick():
             newissues = False
             # Fetch new mails
@@ -163,6 +181,20 @@ def jicketapp():
             mailimporter.logout()
 
             for mail in mails:
+                # Check if mail ist filtered
+                if mailfilter is not None:
+                    filtered, reason = mailfilter.filtermail(mail)
+                    if filtered:
+                        log.info("Mail '%s' from '%s' was filtered for the following reason(s):" % (mail.subject, mail.parsed["from"]))
+                        for r in reason:    # Print the reasons for filtering
+                            log.info(r)
+                        mailimporter.moveImported(mail)
+                        continue
+                    elif reason:
+                        log.info("Mail '%s' was filtered but saved by a whitelist for following reason(s):" % mail.subject)
+                        for r in reason:  # Print the reasons for filtering
+                            log.info(r)
+
                 # Mail is initial confirmation mail
                 if mail.threadstarter:
                     mailimporter.moveImported(mail)
