@@ -44,6 +44,9 @@ class ProcessedMail():
 
         self.rawmailcontent = None  # No need to store after processing
 
+        self.get_text_bodies(self.parsed)
+        self.textfrombodies()
+
     def determine_ticket_ID(self):
         """Determine ticket id either from existing subject line or from uid
 
@@ -67,13 +70,15 @@ class ProcessedMail():
 
         self.prefixedhash = self.config.idPrefix + self.tickethash
 
-    def get_text_bodies(self):
-        if self.parsed.is_multipart():
-            for part in self.parsed.get_payload():
-                if part.get_content_maintype() == "text":
+    def get_text_bodies(self, startpart):
+        if startpart.is_multipart():
+            for part in startpart.get_payload():
+                if part.is_multipart():
+                    self.get_text_bodies(part)
+                elif part.get_content_maintype() == "text":
                     self.textbodies[part.get_content_subtype()] = part.get_payload(decode=True).decode(part.get_content_charset())
         else:
-            self.textbodies[self.parsed.get_content_subtype()] = self.parsed.get_payload(
+            self.textbodies[self.parsed.get_content_subtype()] = startpart.get_payload(
                 decode=True).decode(self.parsed.get_content_charset())
 
     def textfrombodies(self) -> str:
