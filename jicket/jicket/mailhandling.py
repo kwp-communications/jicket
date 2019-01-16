@@ -10,7 +10,7 @@ import ssl
 import jicket.log as log
 import email.parser
 import email.mime.text
-import email.header
+import email.headerregistry
 import email.policy
 import hashids
 import re
@@ -237,7 +237,7 @@ class MailExporter():
         threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"].rstrip().lstrip()
 
         # Set other headers
-        threadstarter["To"] = "%s, %s" % (mail.parsed["From"], self.mailconfig.ticketAddress)
+        threadstarter["to"] = email.headerregistry.HeaderRegistry()("to", mail.parsed["from"] + ", " + self.mailconfig.ticketAddress)
         threadstarter["CC"] = mail.parsed["CC"]
         threadstarter["From"] = self.mailconfig.ticketAddress
         threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip().lstrip()
