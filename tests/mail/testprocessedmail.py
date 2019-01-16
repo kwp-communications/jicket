@@ -52,3 +52,15 @@ class ProcessedMailTestCase(unittest.TestCase):
         # Check if email was correctly identified as a threadstarter
         print("Email is Threadstarter: %s" % self.processed_threadstarter.threadstarter)
         self.assertTrue(self.processed_threadstarter.threadstarter)
+
+    def test_transferencoding(self):
+        path = Path(__file__).parent / "data/transferencoding/threadstarter.eml"
+        with path.open("rb") as f:
+            threadstarter = f.read()
+            processed_threadstarter = ProcessedMail(-1, self.threadstarter, self.config)
+
+        path = Path(__file__).parent / "data/transferencoding/threadstarter_decoded.html"
+        with path.open("r") as f:
+            decoded_body = f.read()
+
+
