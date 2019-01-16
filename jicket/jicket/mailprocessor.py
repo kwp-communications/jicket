@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Dict
 import imaplib
 import smtplib
 import ssl
@@ -10,6 +10,8 @@ import email.policy
 import hashids
 import re
 from jicket.config import MailConfig
+
+import html2text
 
 class ProcessedMail():
     def __init__(self, uid: int, rawmailcontent: bytes, config: MailConfig):
@@ -24,8 +26,10 @@ class ProcessedMail():
 
         self.threadstarter: bool = False  # Whether mail is threadstarter
 
+        self.textbodies: Dict[str, str] = {}    # All text bodies found in email. Key is maintype, value is content.
+
         self.process()
-        self.determineTicketID()
+        self.determine_ticket_ID()
 
     def process(self) -> None:
         """Parse email and fetch body and all attachments"""
@@ -40,7 +44,7 @@ class ProcessedMail():
 
         self.rawmailcontent = None  # No need to store after processing
 
-    def determineTicketID(self):
+    def determine_ticket_ID(self):
         """Determine ticket id either from existing subject line or from uid
 
         If the Subject line contains an ID, it is taken. If it doesn't, a new one is generated.
@@ -62,3 +66,31 @@ class ProcessedMail():
                 self.ticketid = self.uid
 
         self.prefixedhash = self.config.idPrefix + self.tickethash
+
+    def get_text_bodies(self):
+        if self.parsed.is_multipart():
+            for part in self.parsed.get_payload():
+                if part.get_content_maintype() == "text":
+                    self.textbodies[part.get_content_subtype()] = part.get_payload(decode=True).decode(part.get_content_charset())
+        else:
+            self.textbodies[self.parsed.get_content_subtype()] = self.parsed.get_payload(
+                decode=True).decode(self.parsed.get_content_charset())
+
+    def textfrombodies(self) -> str:
+        """Convert text bodies to text that can be attached to an issue"""
+        type_priority = ["plain", "html", "other"]  # TODO: Make configurable
+
+        for texttype in type_priority:
+            if texttype == "plain" and texttype in self.textbodies:
+                """Text is plain, so it can be used verbatim"""
+                return self.textbodies[texttype]
+            if texttype == "html" and texttype in self.textbodies:
+                """HTML text. Convert to markup with html2text and remove extra spaces"""
+                text = html2text.html2text(self.textbodies[texttype])
+                # Remove every second newline which is added to distinguish between paragraphs in Markdown, but makes
+                # the jira ticket hard to read.
+                return re.sub("(\n.*?)\n", "\g<1>", text)
+            if texttype == "other" and len(self.textbodies):
+                # If no other text is found, return the first available body if any.
+                return self.textbodies[list(self.textbodies.keys())[0]]
+        return "The email contained no text bodies."
