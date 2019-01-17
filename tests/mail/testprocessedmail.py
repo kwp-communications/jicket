@@ -54,13 +54,26 @@ class ProcessedMailTestCase(unittest.TestCase):
         self.assertTrue(self.processed_threadstarter.threadstarter)
 
     def test_transferencoding(self):
-        path = Path(__file__).parent / "data/transferencoding/threadstarter.eml"
+        """Test if multipart email with transfereconding is decoded correctly"""
+        path = Path(__file__).parent / "data/transferencoding.eml"
         with path.open("rb") as f:
             threadstarter = f.read()
-            processed_threadstarter = ProcessedMail(-1, self.threadstarter, self.config)
+            processed_threadstarter = ProcessedMail(-1, threadstarter, self.config)
 
-        path = Path(__file__).parent / "data/transferencoding/threadstarter_decoded.html"
+        path = Path(__file__).parent / "data/transferencoding_decoded.html"
         with path.open("r") as f:
-            decoded_body = f.read()
+            decoded_html_body = f.read()
 
+        # Check message decoded from email matches with previously decoded html message
+        self.assertTrue(decoded_html_body == processed_threadstarter.textbodies["html"])
 
+    def test_multipart(self):
+        """Test nested multipart email with html and plain text"""
+        path = Path(__file__).parent / "data/multipart.eml"
+        with path.open("rb") as f:
+            multipart = f.read()
+            processed_multipart = ProcessedMail(-1, multipart, self.config)
+
+        # Text body extractor should find plain and html parts
+        self.assertIn("html", processed_multipart.textbodies)
+        self.assertIn("plain", processed_multipart.textbodies)
