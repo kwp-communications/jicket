@@ -4,10 +4,10 @@ import imaplib
 import ssl
 
 
-imaphost = "imap.web.de"
+imaphost = ""
 imapport = 993
-imapuser = "jicket-test@web.de"
-imappass = "pVfYLdbCcVnKLF6HExGm"
+imapuser = ""
+imappass = ""
 
 folder = "jicket"
 
