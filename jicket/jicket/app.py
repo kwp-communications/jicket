@@ -119,8 +119,8 @@ class JicketApp():
         self.args = parser.parse_args()
 
     def populate_config(self):
-        self.mailconf = mailhandling.MailConfig()
-        self.jiraconf = jiraintegration.JiraConfig()
+        self.mailconf: MailConfig = mailhandling.MailConfig()
+        self.jiraconf: JiraConfig = jiraintegration.JiraConfig()
 
         self.mailconf.IMAPHost = self.args.imaphost
         self.mailconf.IMAPPort = self.args.imapport
