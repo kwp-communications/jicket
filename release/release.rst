@@ -61,7 +61,7 @@ Also take a look at all the files contained in the folder.
 -------------------------
 Build and tag the image with
 
-  ``docker build release/docker -t kwpcommunications/jicket:"$(< VERSION)"``
+  ``docker build release/docker --no-cache -t kwpcommunications/jicket:"$(< VERSION)"``
 
   ``docker build release/docker -t kwpcommunications/jicket:latest``
 
