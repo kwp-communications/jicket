@@ -12,11 +12,17 @@ import jicket.mailhandling as mailhandling
 import jicket.jiraintegration as jiraintegration
 from jicket.mailfilter import MailFilter
 
+from typing import List, Tuple
+
+from jicket.mailhandling import MailImporter, MailExporter
+from jicket.config import MailConfig, JiraConfig
+from jicket.mailprocessor import ProcessedMail
+
 
 class LoopHandler():
-    def __init__(self, looptime: int=10):
-        self.looptime = looptime    # type: int
-        self.lastExecuted = 0       # type: float
+    def __init__(self, looptime: int = 10):
+        self.looptime = looptime  # type: int
+        self.lastExecuted = 0  # type: float
         self.firstExecution = True
         self.continuerunning = True
 
@@ -26,7 +32,7 @@ class LoopHandler():
 
 class DynamicLoop(LoopHandler):
     def tick(self) -> bool:
-        if self.firstExecution:     # Skip sleep on first execution
+        if self.firstExecution:  # Skip sleep on first execution
             self.firstExecution = False
             return True
         time.sleep(self.looptime)
@@ -41,6 +47,7 @@ class IntervalLoop(LoopHandler):
             return True
         else:
             return False
+
 
 class Singleshot(LoopHandler):
     def tick(self) -> bool:
@@ -61,169 +68,178 @@ def argparse_env(varname, default=None):
         return {"required": True, "metavar": varname}
 
 
-def jicketapp():
-    parser = argparse.ArgumentParser("Jicket - Jira Email Ticket System")
+class JicketApp():
+    def __init__(self):
+        self.args: argparse.Namespace = None
 
-    parser.add_argument("--imaphost", type=str, help="Host URL of IMAP mailbox", **argparse_env("JICKET_IMAP_HOST"))
-    parser.add_argument("--imapport", type=int, help="Port of IMAP host", **argparse_env("JICKET_IMAP_PORT", 993))
-    parser.add_argument("--imapuser", type=str, help="User for IMAP", **argparse_env("JICKET_IMAP_USER"))
-    parser.add_argument("--imappass", type=str, help="Password for IMAP", **argparse_env("JICKET_IMAP_PASS"))
+        self.parse_arguments()
+        self.populate_config()
 
-    parser.add_argument("--smtphost", type=str, help="Host URL of SMTP server", **argparse_env("JICKET_SMTP_HOST"))
-    parser.add_argument("--smtpport", type=int, help="Port of SMTP host", **argparse_env("JICKET_SMTP_PORT", 587))
-    parser.add_argument("--smtpuser", type=str, help="User for SMTP (If left empty, IMAP user is used)",
-                        **argparse_env("JICKET_SMTP_USER", ""))
-    parser.add_argument("--smtppass", type=str, help="Password for SMTP (If left empty, IMAP pass is used)",
-                        **argparse_env("JICKET_SMTP_PASS", ""))
+        self.importer: MailImporter = MailImporter(self.mailconf)
+        self.exporter: MailExporter = MailExporter(self.mailconf)
 
-    parser.add_argument("--jiraurl", type=str, help="URL of JIRA instance", **argparse_env("JICKET_JIRA_URL"))
-    parser.add_argument("--jirauser", type=str, help="User for JIRA instance", **argparse_env("JICKET_JIRA_USER"))
-    parser.add_argument("--jirapass", type=str, help="Password for JIRA user", **argparse_env("JICKET_JIRA_PASS"))
-    parser.add_argument("--jiraproject", type=str, help="Project to which tickets shall be added",
-                        **argparse_env("JICKET_JIRA_PROJECT"))
+        self.mailfilter: MailFilter = None
+        if self.args.filterconfig:
+            filterconfigpath = Path(self.args.filterconfig)
+            self.mailfilter = MailFilter(filterconfigpath)
 
-    parser.add_argument("--folderinbox", type=str, help="Folder from which to read incoming mails",
-                        **argparse_env("JICKET_FOLDER_INBOX", "INBOX"))
-    parser.add_argument("--foldersuccess", type=str,
-                        help="Folder in which successfully imported mails are put",
-                        **argparse_env("JICKET_FOLDER_SUCCESS", "jicket"))
-    parser.add_argument("--threadtemplate", type=str,
-                        help="Folder in which successfully imported mails are put",
-                        **argparse_env("JICKET_THREAD_TEMPLATE"))
+        log.success("Initialization successful")
 
-    parser.add_argument("--ticketaddress", type=str, help="Email-address of Helpdesk",
-                        **argparse_env("JICKET_TICKET_ADDRESS"))
-    parser.add_argument("--filterconfig", type=str,
-                        help="Path to file containing filter config, if any",
-                        **argparse_env("JICKET_FILTER_CONFIG", ""))
+    def parse_arguments(self):
+        parser = argparse.ArgumentParser("Jicket - Jira Email Ticket System")
 
-    parser.add_argument("--idprefix", type=str, help="Prefix for ticket IDs",
-                        **argparse_env("JICKET_ID_PREFIX", "JI-"))
-    parser.add_argument("--idsalt", type=str, help="Salt for ticket ID hashing",
-                        **argparse_env("JICKET_ID_SALT", "JicketSalt"))
-    parser.add_argument("--idalphabet", type=str, help="Alphabet for ticket ID hashing",
-                        **argparse_env("JICKET_ID_ALPHABET", "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"))
-    parser.add_argument("--idminlen", type=int, help="Minimum character length of ID hash",
-                        **argparse_env("JICKET_ID_MINLEN", 6))
+        parser.add_argument("--imaphost", type=str, help="Host URL of IMAP mailbox", **argparse_env("JICKET_IMAP_HOST"))
+        parser.add_argument("--imapport", type=int, help="Port of IMAP host", **argparse_env("JICKET_IMAP_PORT", 993))
+        parser.add_argument("--imapuser", type=str, help="User for IMAP", **argparse_env("JICKET_IMAP_USER"))
+        parser.add_argument("--imappass", type=str, help="Password for IMAP", **argparse_env("JICKET_IMAP_PASS"))
 
-    parser.add_argument("--loopmode", type=str, help="Loop Mode", **argparse_env("JICKET_LOOPMODE", "dynamic"))
-    parser.add_argument("--looptime", type=int, help="Time between imap reads in seconds",
-                        **argparse_env("JICKET_LOOPTIME", 60))
+        parser.add_argument("--smtphost", type=str, help="Host URL of SMTP server", **argparse_env("JICKET_SMTP_HOST"))
+        parser.add_argument("--smtpport", type=int, help="Port of SMTP host", **argparse_env("JICKET_SMTP_PORT", 587))
+        parser.add_argument("--smtpuser", type=str, help="User for SMTP (If left empty, IMAP user is used)",
+                            **argparse_env("JICKET_SMTP_USER", ""))
+        parser.add_argument("--smtppass", type=str, help="Password for SMTP (If left empty, IMAP pass is used)",
+                            **argparse_env("JICKET_SMTP_PASS", ""))
 
-    args = parser.parse_args()
+        parser.add_argument("--jiraurl", type=str, help="URL of JIRA instance", **argparse_env("JICKET_JIRA_URL"))
+        parser.add_argument("--jirauser", type=str, help="User for JIRA instance", **argparse_env("JICKET_JIRA_USER"))
+        parser.add_argument("--jirapass", type=str, help="Password for JIRA user", **argparse_env("JICKET_JIRA_PASS"))
+        parser.add_argument("--jiraproject", type=str, help="Project to which tickets shall be added",
+                            **argparse_env("JICKET_JIRA_PROJECT"))
 
-    mailconf = mailhandling.MailConfig()
-    jiraconf = jiraintegration.JiraConfig()
+        parser.add_argument("--folderinbox", type=str, help="Folder from which to read incoming mails",
+                            **argparse_env("JICKET_FOLDER_INBOX", "INBOX"))
+        parser.add_argument("--foldersuccess", type=str,
+                            help="Folder in which successfully imported mails are put",
+                            **argparse_env("JICKET_FOLDER_SUCCESS", "jicket"))
+        parser.add_argument("--threadtemplate", type=str,
+                            help="Folder in which successfully imported mails are put",
+                            **argparse_env("JICKET_THREAD_TEMPLATE"))
 
-    mailconf.IMAPHost = args.imaphost
-    mailconf.IMAPPort = args.imapport
-    mailconf.IMAPUser = args.imapuser
-    mailconf.IMAPPass = args.imappass
+        parser.add_argument("--ticketaddress", type=str, help="Email-address of Helpdesk",
+                            **argparse_env("JICKET_TICKET_ADDRESS"))
+        parser.add_argument("--filterconfig", type=str,
+                            help="Path to file containing filter config, if any",
+                            **argparse_env("JICKET_FILTER_CONFIG", ""))
 
-    mailconf.SMTPHost = args.smtphost
-    mailconf.SMTPPort = args.smtpport
-    mailconf.SMTPUser = args.smtpuser
-    mailconf.SMTPPass = args.smtppass
-    if mailconf.SMTPUser == "":
-        mailconf.SMTPUser = mailconf.IMAPUser
-    if mailconf.SMTPPass == "":
-        mailconf.SMTPPass = mailconf.IMAPPass
+        parser.add_argument("--idprefix", type=str, help="Prefix for ticket IDs",
+                            **argparse_env("JICKET_ID_PREFIX", "JI-"))
+        parser.add_argument("--idsalt", type=str, help="Salt for ticket ID hashing",
+                            **argparse_env("JICKET_ID_SALT", "JicketSalt"))
+        parser.add_argument("--idalphabet", type=str, help="Alphabet for ticket ID hashing",
+                            **argparse_env("JICKET_ID_ALPHABET", "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"))
+        parser.add_argument("--idminlen", type=int, help="Minimum character length of ID hash",
+                            **argparse_env("JICKET_ID_MINLEN", 6))
 
-    jiraconf.jiraHost = args.jiraurl
-    jiraconf.jiraUser = args.jirauser
-    jiraconf.jiraPass = args.jirapass
-    jiraconf.project = args.jiraproject
+        parser.add_argument("--loopmode", type=str, help="Loop Mode", choices=["dynamic", "interval", "singleshot"],
+                            **argparse_env("JICKET_LOOPMODE", "dynamic"))
+        parser.add_argument("--looptime", type=int, help="Time between imap reads in seconds",
+                            **argparse_env("JICKET_LOOPTIME", 60))
 
-    mailconf.folderInbox = args.folderinbox
-    mailconf.folderSuccess = args.foldersuccess
-    mailconf.threadStartTemplate = Path(args.threadtemplate)
+        self.args = parser.parse_args()
 
-    mailconf.ticketAddress = args.ticketaddress
+    def populate_config(self):
+        self.mailconf: MailConfig = mailhandling.MailConfig()
+        self.jiraconf: JiraConfig = jiraintegration.JiraConfig()
 
-    mailconf.idPrefix = args.idprefix
-    mailconf.idSalt = args.idsalt
-    mailconf.idAlphabet = args.idalphabet
-    mailconf.idMinLength = args.idminlen
+        self.mailconf.IMAPHost = self.args.imaphost
+        self.mailconf.IMAPPort = self.args.imapport
+        self.mailconf.IMAPUser = self.args.imapuser
+        self.mailconf.IMAPPass = self.args.imappass
 
-    if mailconf.checkValidity():
-        log.success("Email configuration valid")
+        self.mailconf.SMTPHost = self.args.smtphost
+        self.mailconf.SMTPPort = self.args.smtpport
+        self.mailconf.SMTPUser = self.args.smtpuser
+        self.mailconf.SMTPPass = self.args.smtppass
+        if self.mailconf.SMTPUser == "":
+            self.mailconf.SMTPUser = self.mailconf.IMAPUser
+        if self.mailconf.SMTPPass == "":
+            self.mailconf.SMTPPass = self.mailconf.IMAPPass
 
-    loopmodes = ["dynamic", "interval", "singleshot"]
-    if args.loopmode not in loopmodes:
-        raise ValueError("Invalid loopmode: %s (Allowed values: %s)" % (args.loopmode, loopmodes))
+        self.jiraconf.jiraHost = self.args.jiraurl
+        self.jiraconf.jiraUser = self.args.jirauser
+        self.jiraconf.jiraPass = self.args.jirapass
+        self.jiraconf.project = self.args.jiraproject
 
-    loophandler = None
-    if args.loopmode == "dynamic":
-        loophandler = DynamicLoop(args.looptime)
-    if args.loopmode == "interval":
-        loophandler = IntervalLoop(args.looptime)
-    if args.loopmode == "singleshot":
-        loophandler = Singleshot(args.looptime)
+        self.mailconf.folderInbox = self.args.folderinbox
+        self.mailconf.folderSuccess = self.args.foldersuccess
+        self.mailconf.threadStartTemplate = Path(self.args.threadtemplate)
 
-    mailimporter = mailhandling.MailImporter(mailconf)
+        self.mailconf.ticketAddress = self.args.ticketaddress
 
-    if args.filterconfig:
-        filterconfigpath = Path(args.filterconfig)
-        mailfilter = MailFilter(filterconfigpath)
-    else:
-        mailfilter = None
+        self.mailconf.idPrefix = self.args.idprefix
+        self.mailconf.idSalt = self.args.idsalt
+        self.mailconf.idAlphabet = self.args.idalphabet
+        self.mailconf.idMinLength = self.args.idminlen
 
-    log.success("Initialization successful")
-    log.info("Beginning main loop (mode: %s)" % args.loopmode)
+        if self.mailconf.checkValidity():
+            log.success("Email configuration valid")
 
-    # Enter main loop
-    while loophandler.continuerunning:
-        if loophandler.tick():
-            newissues = False
-            # Fetch new mails
-            mailimporter.login()
-            mails = mailimporter.fetchMails()
-            mailimporter.logout()
+    def start_loop(self):
+        self.loop: LoopHandler = None
+        if self.args.loopmode == "dynamic":
+            self.loop = DynamicLoop(self.args.looptime)
+        if self.args.loopmode == "interval":
+            self.loop = IntervalLoop(self.args.looptime)
+        if self.args.loopmode == "singleshot":
+            self.loop = Singleshot(self.args.looptime)
 
-            for mail in mails:
-                # Check if mail ist filtered
-                if mailfilter is not None:
-                    filtered, reason = mailfilter.filtermail(mail)
-                    if filtered:
-                        log.info("Mail '%s' from '%s' was filtered for the following reason(s):" % (mail.subject, mail.parsed["from"]))
-                        for r in reason:    # Print the reasons for filtering
-                            log.info(r)
-                        mailimporter.moveImported(mail)
-                        continue
-                    elif reason:
-                        log.info("Mail '%s' was filtered but saved by a whitelist for following reason(s):" % mail.subject)
-                        for r in reason:  # Print the reasons for filtering
-                            log.info(r)
+        while self.loop.continuerunning:
+            if self.loop.tick():
+                avail_uids: List[int] = self.importer.get_mail_list()
 
-                # Mail is initial confirmation mail
-                if mail.threadstarter:
-                    mailimporter.moveImported(mail)
-                    continue
+                for uid in avail_uids:
+                    self.process_mail(uid)
 
-                # Mail is completely new ticket or reply to ticket
-                jiraint = jiraintegration.JiraIntegration(mail, jiraconf)
-                success, newissue = jiraint.processMail()
+                self.move_threadstarters()
 
-                # If mail was new ticket, start a new email thread
-                if newissue:
-                    newissues = True
-                    mailexporter = mailhandling.MailExporter(mailconf)
+    def process_mail(self, uid: int) -> bool:
+        """process a single mail from currently available mails
 
-                    mailexporter.login()
-                    mailexporter.sendTicketStart(mail)
-                    mailexporter.quit()
+        Args:
+            uid: uid of email that shall be processed
 
-                mailimporter.moveImported(mail)
+        Returns:
+            Success of processing
+        """
+        mail: ProcessedMail = self.importer.fetchMail(uid)
 
-            if newissues:
-                # Fetch mails again to check if any confirmation mails were sent out which have to be moved to the
-                # import success folder.
-                log.info("Importing again to move confirmation mails")
-                mailimporter.login()
-                mails = mailimporter.fetchMails()
-                mailimporter.logout()
+        if self.mailfilter is not None:
+            filtered, reason = self.mailfilter.filtermail(mail)
+            if filtered:
+                log.info("Mail '%s' from '%s' was filtered for the following reason(s):" % (
+                    mail.subject, mail.parsed["from"]))
+                for r in reason:  # Print the reasons for filtering
+                    log.info(r)
+                self.importer.moveImported(mail)
+                return True
+            elif reason:
+                log.info(
+                    "Mail '%s' was filtered but saved by a whitelist for following reason(s):" % mail.subject)
+                for r in reason:  # Print the reasons for filtering
+                    log.info(r)
 
-                for mail in mails:
-                    # Mail is initial confirmation mail
-                    if mail.threadstarter:
-                        mailimporter.moveImported(mail)
+            if mail.threadstarter:
+                self.importer.moveImported(mail)
+                return True
+
+            # Mail is completely new ticket or reply to ticket
+            jiraint = jiraintegration.JiraIntegration(mail, self.jiraconf)
+            success, newissue = jiraint.processMail()
+
+            # If mail was new ticket, start a new email thread
+            if newissue:
+                mailexporter = mailhandling.MailExporter(self.mailconf)
+
+                mailexporter.login()
+                mailexporter.sendTicketStart(mail)
+                mailexporter.quit()
+
+            self.importer.moveImported(mail)
+
+    def move_threadstarters(self):
+        avail_uids: List[int] = self.importer.get_mail_list()
+
+        for uid in avail_uids:
+            mail: ProcessedMail = self.importer.fetchMail(uid)
+            if mail.threadstarter:
+                self.importer.moveImported(mail)
