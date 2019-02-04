@@ -76,7 +76,11 @@ class ProcessedMail():
                 if part.is_multipart():
                     self.get_text_bodies(part)
                 elif part.get_content_maintype() == "text":
-                    self.textbodies[part.get_content_subtype()] = part.get_payload(decode=True).decode(part.get_content_charset())
+                    if part.get_content_charset() is not None:
+                        self.textbodies[part.get_content_subtype()] = part.get_payload(decode=True).decode(part.get_content_charset())
+                    else:
+                        # If no charset is provided, assume UTF-8 as per RFC 6657
+                        self.textbodies[part.get_content_subtype()] = part.get_payload(decode=True).decode("utf-8")
         else:
             self.textbodies[self.parsed.get_content_subtype()] = startpart.get_payload(
                 decode=True).decode(self.parsed.get_content_charset())

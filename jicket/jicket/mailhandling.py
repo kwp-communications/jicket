@@ -69,13 +69,16 @@ class MailImporter():
             log.error("Error accessing Folder '%s': %s" % (self.mailconfig.folderSuccess, response[1][0].decode()))
             # TODO: Raise exception
 
-    def fetchMails(self) -> List[ProcessedMail]:
-        """Fetch mails from inbox folder and return them"""
+    def get_mail_list(self) -> List[int]:
+        """Get list of all mail-UIDs that are in the inbox
+
+        Returns:
+            List of UIDs of mails in inbox
+        """
         response = self.IMAP.select(self.mailconfig.folderInbox)
         if response[0] != "OK":
             log.error("Error accessing Folder '%s': %s" % (self.mailconfig.folderInbox, response[1][0].decode()))
-            # TODO: Raise exception
-        emailcount = int(response[1][0])
+        emailcount: int = int(response[1][0])
         if not emailcount > 0:
             return []
         log.info("%s email(s) in inbox" % emailcount)
@@ -83,18 +86,29 @@ class MailImporter():
         response = self.IMAP.uid("search", None, "(ALL)")
         if response[0] != "OK":
             log.error("Failed to retrieve mails from inbox: %s" % response[1][0].decode())
+            return []
             # TODO: Raise exception?
-        indices = response[1][0].split()
+        indices: List[bytes] = response[1][0].split()
+        return [int(x) for x in indices]
 
-        mails = []
-        for uid in indices:
-            response = self.IMAP.uid("fetch", uid, "(RFC822)")
-            if response[0] != "OK":
-                log.error("Failed to fetch mail: %s" % response[1][0].decode())
+    def fetchMail(self, uid: int) -> ProcessedMail:
+        """Fetch mail with uid from inbox
 
-            mails.append(ProcessedMail(int(uid), response[1][0][1], self.mailconfig))
+        Arguments:
+            uid: uid of email to fetch
 
-        return mails
+        Returns:
+            Email with uid, or None if it couldn't be found
+        """
+        uidbytes: bytes = str(uid).encode()
+
+        response = self.IMAP.uid("fetch", uidbytes, "(RFC822)")
+        if response[0] != "OK":
+            log.error("Failed to fetch mail: %s" % response[1][0].decode())
+            # TODO: throw exception?
+            return None
+
+        return ProcessedMail(uid, response[1][0][1], self.mailconfig)
 
     def moveImported(self, mail):
         """Move successfully imported mails to success folder"""
