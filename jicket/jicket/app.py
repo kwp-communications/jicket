@@ -14,11 +14,15 @@ from jicket.mailfilter import MailFilter
 
 from typing import List, Tuple
 
+from jicket.mailhandling import MailImporter, MailExporter
+from jicket.config import MailConfig, JiraConfig
+from jicket.mailprocessor import ProcessedMail
+
 
 class LoopHandler():
-    def __init__(self, looptime: int=10):
-        self.looptime = looptime    # type: int
-        self.lastExecuted = 0       # type: float
+    def __init__(self, looptime: int = 10):
+        self.looptime = looptime  # type: int
+        self.lastExecuted = 0  # type: float
         self.firstExecution = True
         self.continuerunning = True
 
@@ -28,7 +32,7 @@ class LoopHandler():
 
 class DynamicLoop(LoopHandler):
     def tick(self) -> bool:
-        if self.firstExecution:     # Skip sleep on first execution
+        if self.firstExecution:  # Skip sleep on first execution
             self.firstExecution = False
             return True
         time.sleep(self.looptime)
@@ -43,6 +47,7 @@ class IntervalLoop(LoopHandler):
             return True
         else:
             return False
+
 
 class Singleshot(LoopHandler):
     def tick(self) -> bool:
@@ -66,6 +71,19 @@ def argparse_env(varname, default=None):
 class JicketApp():
     def __init__(self):
         self.args: argparse.Namespace = None
+
+        self.parse_arguments()
+        self.populate_config()
+
+        self.importer: MailImporter = MailImporter(self.mailconf)
+        self.exporter: MailExporter = MailExporter(self.mailconf)
+
+        self.mailfilter: MailFilter = None
+        if self.args.filterconfig:
+            filterconfigpath = Path(self.args.filterconfig)
+            self.mailfilter = MailFilter(filterconfigpath)
+
+        log.success("Initialization successful")
 
     def parse_arguments(self):
         parser = argparse.ArgumentParser("Jicket - Jira Email Ticket System")
@@ -112,7 +130,8 @@ class JicketApp():
         parser.add_argument("--idminlen", type=int, help="Minimum character length of ID hash",
                             **argparse_env("JICKET_ID_MINLEN", 6))
 
-        parser.add_argument("--loopmode", type=str, help="Loop Mode", **argparse_env("JICKET_LOOPMODE", "dynamic"))
+        parser.add_argument("--loopmode", type=str, help="Loop Mode", choices=["dynamic", "interval", "singleshot"],
+                            **argparse_env("JICKET_LOOPMODE", "dynamic"))
         parser.add_argument("--looptime", type=int, help="Time between imap reads in seconds",
                             **argparse_env("JICKET_LOOPTIME", 60))
 
@@ -155,13 +174,23 @@ class JicketApp():
         if self.mailconf.checkValidity():
             log.success("Email configuration valid")
 
-    def check_available_mails(self) -> List[int]:
-        """Check how many mails are available in the inbox
+    def start_loop(self):
+        self.loop: LoopHandler = None
+        if self.args.loopmode == "dynamic":
+            self.loop = DynamicLoop(self.args.looptime)
+        if self.args.loopmode == "interval":
+            self.loop = IntervalLoop(self.args.looptime)
+        if self.args.loopmode == "singleshot":
+            self.loop = Singleshot(self.args.looptime)
 
-        Returns:
-            List of email uids that are to be processed
-        """
-        pass
+        while self.loop.continuerunning:
+            if self.loop.tick():
+                avail_uids: List[int] = self.importer.get_mail_list()
+
+                for uid in avail_uids:
+                    self.process_mail(uid)
+
+                self.move_threadstarters()
 
     def process_mail(self, uid: int) -> bool:
         """process a single mail from currently available mails
@@ -172,4 +201,45 @@ class JicketApp():
         Returns:
             Success of processing
         """
-        pass
+        mail: ProcessedMail = self.importer.fetchMail(uid)
+
+        if self.mailfilter is not None:
+            filtered, reason = self.mailfilter.filtermail(mail)
+            if filtered:
+                log.info("Mail '%s' from '%s' was filtered for the following reason(s):" % (
+                    mail.subject, mail.parsed["from"]))
+                for r in reason:  # Print the reasons for filtering
+                    log.info(r)
+                self.importer.moveImported(mail)
+                return True
+            elif reason:
+                log.info(
+                    "Mail '%s' was filtered but saved by a whitelist for following reason(s):" % mail.subject)
+                for r in reason:  # Print the reasons for filtering
+                    log.info(r)
+
+            if mail.threadstarter:
+                self.importer.moveImported(mail)
+                return True
+
+            # Mail is completely new ticket or reply to ticket
+            jiraint = jiraintegration.JiraIntegration(mail, self.jiraconf)
+            success, newissue = jiraint.processMail()
+
+            # If mail was new ticket, start a new email thread
+            if newissue:
+                mailexporter = mailhandling.MailExporter(self.mailconf)
+
+                mailexporter.login()
+                mailexporter.sendTicketStart(mail)
+                mailexporter.quit()
+
+            self.importer.moveImported(mail)
+
+    def move_threadstarters(self):
+        avail_uids: List[int] = self.importer.get_mail_list()
+
+        for uid in avail_uids:
+            mail: ProcessedMail = self.importer.fetchMail(uid)
+            if mail.threadstarter:
+                self.importer.moveImported(mail)

@@ -2,4 +2,5 @@
 
 from jicket import app
 
-app.jicketapp()
+a = app.JicketApp()
+a.start_loop()
