@@ -140,11 +140,10 @@ class MailExporter():
         recipients = []
         for addr in mail["to"].addresses:
             recipients.append(str(addr))
-        if mail["cc"]:
+        if mail["cc"] is not None:
             for addr in mail["cc"].addresses:
                 recipients.append(str(addr))
-
-        self.SMTP.sendmail(mail["From"], recipients, mail.as_string())
+        self.SMTP.sendmail(str(mail["From"]), recipients, mail.as_string())
 
     def sendTicketStart(self, mail: ProcessedMail):
         """Sends the initial mail to start an email thread from an incoming email"""
@@ -156,19 +155,20 @@ class MailExporter():
                 "subject": mail.subject
             }
 
-        threadstarter = email.mime.text.MIMEText(responsehtml, "html")
+        threadstarter = email.mime.text.MIMEText(responsehtml, "html", policy=email.policy.EmailPolicy())
 
         # Add Jicket headers
         threadstarter["X-Jicket-HashID"] = mail.tickethash
         # Initial ID this is a reply to. It is used to identify if this is a threadstarter email or regular mail.
         # Treadstarter mails should be ignored on import, as they're only of informative nature.
-        threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"].rstrip().lstrip()
+        threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"]
 
         # Set other headers
         threadstarter["to"] = email.headerregistry.HeaderRegistry()("to", mail.parsed["from"] + ", " + self.mailconfig.ticketAddress)
-        threadstarter["CC"] = mail.parsed["CC"]
+        if mail.parsed["CC"] is not None:
+            threadstarter["cc"] = email.headerregistry.HeaderRegistry()("cc", mail.parsed["CC"])
         threadstarter["From"] = self.mailconfig.ticketAddress
-        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"].rstrip().lstrip()
+        threadstarter["In-Reply-To"] = mail.parsed["Message-ID"]
         threadstarter["Subject"] = "[#%s%s] %s" % (self.mailconfig.idPrefix, mail.tickethash, mail.subject)
 
         # Send mail
