@@ -155,7 +155,7 @@ class MailExporter():
                 "subject": mail.subject
             }
 
-        threadstarter = email.mime.text.MIMEText(responsehtml, "html", policy=email.policy.EmailPolicy())
+        threadstarter = email.mime.text.MIMEText(responsehtml, "html", policy=email.policy.EmailPolicy(max_line_length=78))
 
         # Add Jicket headers
         threadstarter["X-Jicket-HashID"] = mail.tickethash
@@ -164,9 +164,9 @@ class MailExporter():
         threadstarter["X-Jicket-Initial-ReplyID"] = mail.parsed["Message-ID"]
 
         # Set other headers
-        threadstarter["to"] = email.headerregistry.HeaderRegistry()("to", mail.parsed["from"] + ", " + self.mailconfig.ticketAddress)
+        threadstarter["to"] = mail.parsed["from"] + ", " + self.mailconfig.ticketAddress
         if mail.parsed["CC"] is not None:
-            threadstarter["cc"] = email.headerregistry.HeaderRegistry()("cc", mail.parsed["CC"])
+            threadstarter["cc"] = str(mail.parsed["CC"])
         threadstarter["From"] = self.mailconfig.ticketAddress
         threadstarter["In-Reply-To"] = mail.parsed["Message-ID"]
         threadstarter["Subject"] = "[#%s%s] %s" % (self.mailconfig.idPrefix, mail.tickethash, mail.subject)
